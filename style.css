@@ -1,0 +1,233 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body {
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: #f5f7fa;
+    color: #1e2a3e;
+    transition: background 0.2s, color 0.2s;
+    padding: 16px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+html.dark body {
+    background: #121212;
+    color: #e0e0e0;
+}
+.header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+.header h1 {
+    font-size: 1.8rem;
+}
+.header p {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+.header-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+.header-btn {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.member-btn {
+    background: #ff9800;
+}
+.search-box {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+.search-box input {
+    flex: 1;
+    padding: 10px;
+    border-radius: 30px;
+    border: 1px solid #ccc;
+}
+.search-box button {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 0 20px;
+    border-radius: 30px;
+    cursor: pointer;
+}
+.main-nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+.main-nav-btn {
+    background: #e0e0e0;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 30px;
+    cursor: pointer;
+}
+.main-nav-btn.active {
+    background: #2196F3;
+    color: white;
+}
+.player {
+    background: #ffffff;
+    padding: 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+html.dark .player {
+    background: #1e1e1e;
+}
+audio {
+    width: 100%;
+    margin-top: 8px;
+}
+.list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.footer {
+    text-align: center;
+    font-size: 0.7rem;
+    margin-top: 30px;
+    opacity: 0.7;
+}
+a {
+    color: #2196F3;
+}
+html.no-ad .ad-wrapper {
+    display: none !important;
+}
+.station-item {
+    position: relative;
+    padding: 14px;
+    margin: 10px 0;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    transition: 0.2s ease;
+    cursor: pointer;
+    background: white;
+}
+html.dark .station-item {
+    border-color: #444;
+    background: #2a2a2a;
+}
+.station-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.fav-card-btn {
+    position: absolute;
+    top:10px;
+    right:10px;
+    background: transparent;
+    border: none;
+    font-size:22px;
+    cursor: pointer;
+    padding:2px 6px;
+}
+.fav-card-btn.active {
+    color:#ffb800;
+}
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 999;
+    left:0;
+    top:0;
+    width:100%;
+    height:100%;
+    background-color: rgba(0,0,0,0.6);
+}
+.modal-content {
+    background: #fff;
+    margin: 10vh auto;
+    padding:25px;
+    width:90%;
+    max-width:420px;
+    border-radius:12px;
+}
+html.dark .modal-content {
+    background:#222;
+    color:#eee;
+}
+.closeModal {
+    float:right;
+    font-size:28px;
+    cursor:pointer;
+    padding:0 8px;
+}
+.type-filter, .country-filter, .lang-filter {
+    display:none;
+    flex-wrap:wrap;
+    gap:8px;
+    padding:12px;
+    margin:10px 0;
+}
+.type-btn, .country-btn, .lang-btn {
+    padding:7px 12px;
+    border-radius:6px;
+    border:1px solid #ccc;
+    background:#f7f7f7;
+    cursor:pointer;
+}
+html.dark .type-btn, html.dark .country-btn, html.dark .lang-btn {
+    background:#333;
+    border-color:#555;
+    color:#eee;
+}
+.page-box {
+    display:flex;
+    gap:12px;
+    justify-content:center;
+    padding:15px 0;
+    align-items:center;
+}
+#prevPage, #nextPage {
+    padding:8px 16px;
+    border-radius:6px;
+    border:none;
+    background:#2196F3;
+    color:white;
+    cursor:pointer;
+}
+input {
+    padding:9px 12px;
+    border-radius:6px;
+    border:1px solid #ccc;
+    width:100%;
+    box-sizing:border-box;
+}
+html.dark input {
+    background:#2a2a2a;
+    color:#fff;
+    border-color:#555;
+}
+@media(max-width:600px) {
+    .header-buttons {
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:6px;
+    }
+    .main-nav {
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:6px;
+    }
+}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-title" content="RadioHub">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="preconnect" href="https://api.radio-browser.info">
+    <title>Global Radio Hub | Free Live Radio Worldwide</title>
+    <meta name="description" content="Listen to thousands of free live radio stations, filter by country, genre, language. Browse all stations with pagination.">
+    <meta name="keywords" content="radio,live radio,global radio,free fm,online radio">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#2196F3">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        window.addEventListener('load', () => {
+            const adsScript = document.createElement('script');
+            adsScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXX';
+            adsScript.crossOrigin = 'anonymous';
+            adsScript.async = true;
+            document.head.appendChild(adsScript);
+        });
+    </script>
+</head>
+<body>
+    <header class="header">
+        <h1>Global Radio Hub</h1>
+        <p>Add to home screen for APP experience 📱</p>
+        <div class="header-buttons">
+            <button id="themeBtn" class="header-btn">🌓 Theme</button>
+            <button id="favBtnTop" class="header-btn">My Favorites</button>
+            <button id="historyBtnTop" class="header-btn">Play History</button>
+            <button id="memberBtn" class="header-btn member-btn">Remove Ads</button>
+        </div>
+    </header>
+
+    <div class="ad-block ad-top ad-wrapper">
+        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="1111111111" data-ad-format="auto" data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search radio station name..." autocomplete="off">
+        <button id="searchBtn">Search</button>
+    </div>
+
+    <div class="main-nav">
+        <button class="main-nav-btn active" data-view="hot">Popular</button>
+        <button class="main-nav-btn" data-view="all">All Stations List</button>
+        <button class="main-nav-btn" data-view="type">Browse By Genre</button>
+        <button class="main-nav-btn" data-view="country">Browse By Country</button>
+        <button class="main-nav-btn" data-view="lang">Browse By Language</button>
+    </div>
+
+    <div class="type-filter" id="typeFilter">
+        <button class="type-btn" data-tag="music">Music</button>
+        <button class="type-btn" data-tag="pop">Pop</button>
+        <button class="type-btn" data-tag="rock">Rock</button>
+        <button class="type-btn" data-tag="jazz">Jazz</button>
+        <button class="type-btn" data-tag="classical">Classical</button>
+        <button class="type-btn" data-tag="talk">Talk / Podcast</button>
+        <button class="type-btn" data-tag="learning">Language Learning</button>
+        <button class="type-btn" data-tag="news">General News</button>
+    </div>
+
+    <div class="country-filter" id="countryFilter">
+        <input id="countrySearch" placeholder="Filter country name..." autocomplete="off"/>
+        <div class="country-list" id="countryBtnWrap"></div>
+    </div>
+
+    <div class="lang-filter" id="langFilter">
+        <input id="langSearch" placeholder="Filter language name..." autocomplete="off"/>
+        <div class="lang-list" id="langBtnWrap"></div>
+    </div>
+
+    <div class="player">
+        <h3 id="playTitle">Select a station to play</h3>
+        <audio id="audioPlayer" controls preload="none" crossorigin="anonymous"></audio>
+    </div>
+
+    <div id="loadingTip" style="text-align:center;padding:15px;font-size:16px;display:none;">Loading stations...</div>
+    <div id="emptyTip" style="text-align:center;padding:20px;display:none;"></div>
+
+    <div class="ad-block ad-middle ad-wrapper">
+        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="2222222222" data-ad-format="auto" data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+
+    <div class="list-container" id="stationList"></div>
+
+    <div class="page-box" id="pageBox">
+        <button id="prevPage">← Prev</button>
+        <span id="pageNum">Page 1</span>
+        <button id="nextPage">Next →</button>
+    </div>
+
+    <div class="ad-block ad-bottom ad-wrapper">
+        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="3333333333" data-ad-format="auto" data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+
+    <div id="memberModal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <span class="closeModal" tabindex="0">&times;</span>
+            <h2>Ad-Free Membership</h2>
+            <p>$1.99 / Lifetime remove all ads</p>
+            <div id="paypal-button-container"></div>
+            <p>After payment, refresh page to activate ad-free mode</p>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>This platform only provides directory & external links. We do not store or rebroadcast audio streams.</p>
+        <p>Contact: your-email@xxx.com | <a href="privacy.html">Privacy & DMCA</a></p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
