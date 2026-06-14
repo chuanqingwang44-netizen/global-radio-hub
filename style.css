@@ -173,7 +173,6 @@ html.dark .lang-filter {
     background: rgba(30,41,59,0.6);
 }
 
-/* 语言按钮样式 */
 .type-btn, .lang-btn {
     padding: 8px 18px;
     border-radius: 32px;
@@ -199,7 +198,7 @@ html.dark .lang-btn {
     box-shadow: 0 6px 12px rgba(30,144,255,0.3);
 }
 
-/* 国家下拉框容器 */
+/* 国家下拉框 */
 .country-select-wrapper {
     width: 100%;
     display: flex;
@@ -243,31 +242,111 @@ html.dark .country-select {
     box-shadow: 0 0 0 3px rgba(30,144,255,0.3);
 }
 
-/* ========== 播放器 ========== */
+/* ========== 动感播放器 ========== */
 .player {
-    background: white;
-    padding: 18px;
-    border-radius: 32px;
+    position: relative;
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
+    padding: 20px;
+    border-radius: 40px;
     margin-bottom: 28px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border: 1px solid rgba(30,144,255,0.2);
+    overflow: hidden;
 }
 html.dark .player {
-    background: #1e293b;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-color: rgba(30,144,255,0.3);
 }
-
+.player.playing {
+    box-shadow: 0 0 0 2px rgba(30,144,255,0.3), 0 18px 32px -12px rgba(0, 0, 0, 0.2);
+    border-color: #1e90ff;
+}
+.player.playing::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #1e90ff, #8b5cf6, #f97316, #1e90ff);
+    background-size: 400% 400%;
+    border-radius: 42px;
+    z-index: -1;
+    animation: gradientFlow 3s ease infinite;
+    opacity: 0.6;
+}
+@keyframes gradientFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
 #playTitle {
-    font-size: 1rem;
-    font-weight: 500;
-    margin-bottom: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    text-align: center;
+    color: #1e293b;
+    transition: all 0.2s;
     white-space: nowrap;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding-bottom: 6px;
 }
-
+html.dark #playTitle {
+    color: #f1f5f9;
+}
+.player.playing #playTitle {
+    background: linear-gradient(120deg, #1e90ff, #f97316);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: titleShine 1.5s ease infinite;
+}
+@keyframes titleShine {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; text-shadow: 0 0 4px rgba(30,144,255,0.5); }
+    100% { opacity: 0.8; }
+}
 audio {
     width: 100%;
-    border-radius: 40px;
+    border-radius: 60px;
     outline: none;
+    background: #f1f5f9;
+    height: 48px;
+}
+html.dark audio {
+    background: #334155;
+}
+audio::-webkit-media-controls-panel {
+    background: #f1f5f9;
+}
+html.dark audio::-webkit-media-controls-panel {
+    background: #334155;
+}
+audio::-webkit-media-controls-play-button {
+    background-color: #1e90ff;
+    border-radius: 50%;
+}
+audio::-webkit-media-controls-current-time-display,
+audio::-webkit-media-controls-time-remaining-display {
+    color: #0f172a;
+}
+html.dark audio::-webkit-media-controls-current-time-display,
+html.dark audio::-webkit-media-controls-time-remaining-display {
+    color: #e2e8f0;
+}
+
+/* ========== 音频频谱画布 ========== */
+.audio-spectrum {
+    width: 100%;
+    height: 80px;
+    margin-top: 16px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.05);
+    transition: all 0.2s;
+}
+html.dark .audio-spectrum {
+    background: rgba(255, 255, 255, 0.05);
 }
 
 /* ========== 电台卡片 ========== */
@@ -291,7 +370,6 @@ html.dark .station-item {
     box-shadow: 0 12px 24px rgba(0,0,0,0.1);
     border-color: #1e90ff;
 }
-
 .station-item h4 {
     margin-bottom: 6px;
     font-size: 1.05rem;
@@ -301,7 +379,6 @@ html.dark .station-item {
     font-size: 0.75rem;
     opacity: 0.8;
 }
-
 .fav-card-btn {
     position: absolute;
     top: 14px;
@@ -460,5 +537,14 @@ html.no-ad .ad-wrapper {
     }
     .station-item h4 {
         font-size: 0.9rem;
+    }
+    .player {
+        padding: 16px;
+    }
+    #playTitle {
+        font-size: 0.9rem;
+    }
+    .audio-spectrum {
+        height: 60px;
     }
 }
