@@ -1,13 +1,12 @@
 // ========== 可用的 Radio Browser 镜像服务器列表 ==========
 const API_MIRRORS = [
-  "https://de1.api.radio-browser.info/json",   // 德国（推荐）
-  "https://nl1.api.radio-browser.info/json",   // 荷兰
-  "https://fr1.api.radio-browser.info/json",   // 法国
-  "https://us1.api.radio-browser.info/json"    // 美国
+  "https://de1.api.radio-browser.info/json",
+  "https://nl1.api.radio-browser.info/json",
+  "https://fr1.api.radio-browser.info/json",
+  "https://us1.api.radio-browser.info/json"
 ];
 let currentMirrorIndex = 0;
 
-// 自动尝试下一个镜像
 async function fetchWithFallback(url, options) {
   for (let i = 0; i < API_MIRRORS.length; i++) {
     const mirror = API_MIRRORS[(currentMirrorIndex + i) % API_MIRRORS.length];
@@ -25,7 +24,7 @@ async function fetchWithFallback(url, options) {
   throw new Error("所有 API 镜像均不可用");
 }
 
-// 多组UA轮换（符合官方建议格式，邮箱已替换）
+// 多组UA轮换
 const UA_LIST = [
   "GlobalRadioHub/1.0 (Contact: wcqyt@163.com)",
   "RadioHubWeb/1.0 (Contact: wcqyt@163.com)",
@@ -131,7 +130,6 @@ let state = {
   paypalRetries: 0
 };
 
-// ========== 会员系统 ==========
 function isMember() {
   try { return localStorage.getItem(STORAGE_MEMBER_KEY) === "paid"; }
   catch { return false; }
@@ -145,7 +143,6 @@ function initAdState() {
   if (isMember()) document.documentElement.classList.add("no-ad");
 }
 
-// 加载提示
 function showLoading() { dom.loadingTip.style.display = "block"; dom.emptyTip.style.display = "none"; }
 function hideLoading() { dom.loadingTip.style.display = "none"; }
 function showEmptyTip(text) { dom.emptyTip.textContent = text; dom.emptyTip.style.display = "block"; dom.stationList.innerHTML = ""; }
@@ -157,7 +154,6 @@ function hideAllFilter() {
   dom.langFilter.style.display = "none";
 }
 
-// 收藏
 function getFavorites() {
   try { const raw = localStorage.getItem(STORAGE_FAV_KEY); return raw ? JSON.parse(raw) : []; }
   catch { return []; }
@@ -182,7 +178,6 @@ function loadFavList() {
   renderStationList(favs);
 }
 
-// 播放历史
 function getHistory() {
   try { const raw = localStorage.getItem(STORAGE_HIST_KEY); return raw ? JSON.parse(raw) : []; }
   catch { return []; }
@@ -204,7 +199,6 @@ function loadHistoryList() {
   renderStationList(hist);
 }
 
-// 主题
 function initTheme() {
   let saved = "light";
   try { saved = localStorage.getItem(STORAGE_THEME_KEY) || "light"; }
@@ -220,7 +214,6 @@ function toggleTheme() {
   catch {}
 }
 
-// PayPal
 function loadPayPal() {
   if (document.querySelector('#paypal-sdk')) return;
   const script = document.createElement('script');
@@ -264,7 +257,6 @@ function bindModalEvent() {
   });
 }
 
-// 渲染电台列表
 function renderStationList(rawList) {
   dom.stationList.innerHTML = "";
   dom.emptyTip.style.display = "none";
@@ -317,7 +309,7 @@ async function playStation(station) {
 
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// 缓存国家/语言
+// 国家缓存（不变）
 async function loadCachedCountries() {
   try {
     const cacheStr = localStorage.getItem(STORAGE_COUNTRY_CACHE);
@@ -334,6 +326,111 @@ async function loadCachedCountries() {
   state.fullCountryList = data;
   try { localStorage.setItem(STORAGE_COUNTRY_CACHE, JSON.stringify({ time: Date.now(), data })); } catch {}
   renderCountryButtons(data);
+}
+
+// ========== 语言优化：主要语言 + 其他语言 ==========
+// 定义全球主要语言（中英文名称，便于识别）
+const majorLanguages = [
+  { name: "English", display: "🇬🇧 English (英语)" },
+  { name: "Chinese", display: "🇨🇳 Chinese (汉语)" },
+  { name: "Spanish", display: "🇪🇸 Spanish (西班牙语)" },
+  { name: "French", display: "🇫🇷 French (法语)" },
+  { name: "German", display: "🇩🇪 German (德语)" },
+  { name: "Japanese", display: "🇯🇵 Japanese (日语)" },
+  { name: "Korean", display: "🇰🇷 Korean (韩语)" },
+  { name: "Arabic", display: "🇸🇦 Arabic (阿拉伯语)" },
+  { name: "Russian", display: "🇷🇺 Russian (俄语)" },
+  { name: "Portuguese", display: "🇵🇹 Portuguese (葡萄牙语)" },
+  { name: "Italian", display: "🇮🇹 Italian (意大利语)" },
+  { name: "Dutch", display: "🇳🇱 Dutch (荷兰语)" },
+  { name: "Turkish", display: "🇹🇷 Turkish (土耳其语)" },
+  { name: "Hindi", display: "🇮🇳 Hindi (印地语)" }
+];
+
+// 从全量语言列表中提取主要语言对象（匹配 name 字段，不区分大小写）
+function extractMajorLanguages(fullList) {
+  const major = [];
+  const other = [];
+  const majorNamesLower = majorLanguages.map(m => m.name.toLowerCase());
+  for (const lang of fullList) {
+    const langName = lang.name.toLowerCase();
+    const matched = majorLanguages.find(m => m.name.toLowerCase() === langName);
+    if (matched) {
+      major.push({
+        ...lang,
+        displayName: matched.display
+      });
+    } else {
+      other.push(lang);
+    }
+  }
+  // 按主要语言预定义顺序排序
+  major.sort((a, b) => {
+    const aIdx = majorLanguages.findIndex(m => m.name.toLowerCase() === a.name.toLowerCase());
+    const bIdx = majorLanguages.findIndex(m => m.name.toLowerCase() === b.name.toLowerCase());
+    return aIdx - bIdx;
+  });
+  return { major, other };
+}
+
+function renderLangButtons(list) {
+  dom.langBtnWrap.innerHTML = "";
+  const { major, other } = extractMajorLanguages(list);
+  
+  // 渲染主要语言
+  if (major.length) {
+    const majorTitle = document.createElement("div");
+    majorTitle.className = "lang-group-title";
+    majorTitle.textContent = "🌍 主要语言";
+    majorTitle.style.fontWeight = "bold";
+    majorTitle.style.margin = "10px 0 5px 0";
+    dom.langBtnWrap.appendChild(majorTitle);
+    
+    major.forEach(lang => {
+      const btn = document.createElement("button");
+      btn.className = "lang-btn";
+      btn.textContent = `${lang.displayName || escapeHtml(lang.name)} (${lang.stationcount})`;
+      btn.dataset.lang = lang.name;
+      btn.onclick = () => loadByLang(lang.name);
+      dom.langBtnWrap.appendChild(btn);
+    });
+  }
+  
+  // 渲染其他语言（默认折叠或显示“其他语言”按钮）
+  if (other.length) {
+    const otherTitle = document.createElement("div");
+    otherTitle.className = "lang-group-title";
+    otherTitle.textContent = "🔽 其他语言 (点击展开)";
+    otherTitle.style.fontWeight = "bold";
+    otherTitle.style.margin = "15px 0 5px 0";
+    otherTitle.style.cursor = "pointer";
+    otherTitle.style.color = "#2196F3";
+    dom.langBtnWrap.appendChild(otherTitle);
+    
+    const otherContainer = document.createElement("div");
+    otherContainer.className = "lang-other-container";
+    otherContainer.style.display = "none";
+    otherContainer.style.flexWrap = "wrap";
+    otherContainer.style.gap = "8px";
+    otherContainer.style.marginTop = "5px";
+    
+    other.forEach(lang => {
+      const btn = document.createElement("button");
+      btn.className = "lang-btn";
+      btn.textContent = `${escapeHtml(lang.name)} (${lang.stationcount})`;
+      btn.dataset.lang = lang.name;
+      btn.onclick = () => loadByLang(lang.name);
+      otherContainer.appendChild(btn);
+    });
+    dom.langBtnWrap.appendChild(otherContainer);
+    
+    // 点击标题切换显示
+    otherTitle.onclick = () => {
+      const isHidden = otherContainer.style.display === "none";
+      otherContainer.style.display = isHidden ? "flex" : "none";
+      otherTitle.textContent = isHidden ? "🔼 其他语言 (点击收起)" : "🔽 其他语言 (点击展开)";
+    };
+  }
 }
 
 async function loadCachedLanguages() {
@@ -354,6 +451,7 @@ async function loadCachedLanguages() {
   renderLangButtons(data);
 }
 
+// 国家按钮渲染（不变）
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
   list.forEach(ct => {
@@ -366,19 +464,7 @@ function renderCountryButtons(list) {
   });
 }
 
-function renderLangButtons(list) {
-  dom.langBtnWrap.innerHTML = "";
-  list.forEach(lg => {
-    const btn = document.createElement("button");
-    btn.className = "lang-btn";
-    btn.textContent = `${escapeHtml(lg.name)} (${lg.stationcount})`;
-    btn.dataset.lang = lg.name;
-    btn.onclick = () => loadByLang(lg.name);
-    dom.langBtnWrap.appendChild(btn);
-  });
-}
-
-// 数据加载
+// 数据加载接口（不变）
 async function loadHot() {
   showLoading();
   hideAllFilter();
@@ -427,7 +513,6 @@ async function loadByLang(name) {
   hideLoading();
 }
 
-// 搜索
 const handleSearch = debounce(async () => {
   const q = dom.searchInput.value.trim();
   if (!q) return;
@@ -450,7 +535,6 @@ const filterLang = debounce(() => {
   renderLangButtons(filtered);
 });
 
-// 导航切换
 function bindNavEvents() {
   dom.mainNavBtns.forEach(btn => {
     btn.onclick = async () => {
@@ -475,7 +559,7 @@ function bindNavEvents() {
         case "lang":
           hideAllFilter();
           dom.langFilter.style.display = "flex";
-          showEmptyTip("搜索或点击语言加载电台");
+          showEmptyTip("点击下方语言加载电台");
           if (!state.fullLangList.length) await loadCachedLanguages();
           break;
       }
@@ -483,7 +567,6 @@ function bindNavEvents() {
   });
 }
 
-// 分页
 function bindPageEvents() {
   dom.prevPage.onclick = async () => {
     if (state.nowView !== "all" || state.currentPage <= 1) return;
@@ -497,7 +580,6 @@ function bindPageEvents() {
   };
 }
 
-// 后台暂停音频
 function bindVisibilityPause() {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden && !dom.audioPlayer.paused) dom.audioPlayer.pause();
