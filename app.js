@@ -34,10 +34,10 @@ function getRandomUA() { return UA_LIST[Math.floor(Math.random() * UA_LIST.lengt
 const fetchOption = { headers: { "User-Agent": getRandomUA() } };
 let fetchLock = false;
 const pageSize = 60;
-const HIST_MAX = 50;
+const RECENT_MAX = 20;
 const CACHE_EXPIRE = 86400000;
 const STORAGE_FAV_KEY = "radio_favorites";
-const STORAGE_HIST_KEY = "radio_history";
+const STORAGE_RECENT_KEY = "radio_recent";
 const STORAGE_THEME_KEY = "radio_theme";
 const STORAGE_MEMBER_KEY = "radio_member";
 const STORAGE_COUNTRY_CACHE = "radio_country_cache";
@@ -70,142 +70,112 @@ async function safeFetch(urlPath, opt) {
   } finally { setTimeout(() => fetchLock = false, 1000); }
 }
 
+// DOM 元素
 const dom = {
-  searchInput: document.getElementById("searchInput"), searchBtn: document.getElementById("searchBtn"),
-  stationList: document.getElementById("stationList"), audioPlayer: document.getElementById("audioPlayer"),
-  playTitle: document.getElementById("playTitle"), favBtnTop: document.getElementById("favBtnTop"),
-  historyBtnTop: document.getElementById("historyBtnTop"), themeBtn: document.getElementById("themeBtn"),
-  memberBtn: document.getElementById("memberBtn"), loadingTip: document.getElementById("loadingTip"),
-  emptyTip: document.getElementById("emptyTip"), modal: document.getElementById("memberModal"),
-  closeModal: document.querySelector(".closeModal"), paypalWrap: document.getElementById("paypal-button-container"),
-  mainNavBtns: document.querySelectorAll(".main-nav-btn"), typeFilter: document.getElementById("typeFilter"),
-  typeBtns: document.querySelectorAll(".type-btn"), countryFilter: document.getElementById("countryFilter"),
-  countryBtnWrap: document.getElementById("countryBtnWrap"), countrySearchInput: document.getElementById("countrySearch"),
-  langFilter: document.getElementById("langFilter"), langBtnWrap: document.getElementById("langBtnWrap"),
-  pageBox: document.getElementById("pageBox"), prevPage: document.getElementById("prevPage"),
-  nextPage: document.getElementById("nextPage"), pageNumText: document.getElementById("pageNum"),
-  adWrappers: document.querySelectorAll(".ad-wrapper")
+  searchInput: document.getElementById("searchInput"),
+  searchBtn: document.getElementById("searchBtn"),
+  audioPlayer: document.getElementById("audioPlayer"),
+  nowPlayingName: document.getElementById("nowPlayingName"),
+  nowPlayingCountry: document.getElementById("nowPlayingCountry"),
+  nowPlayingTags: document.getElementById("nowPlayingTags"),
+  recentList: document.getElementById("recentList"),
+  stationList: document.getElementById("stationList"),
+  pageBox: document.getElementById("pageBox"),
+  prevPage: document.getElementById("prevPage"),
+  nextPage: document.getElementById("nextPage"),
+  pageNumText: document.getElementById("pageNum"),
+  typeFilter: document.getElementById("typeFilter"),
+  typeBtns: document.querySelectorAll(".type-btn"),
+  countryFilter: document.getElementById("countryFilter"),
+  countryBtnWrap: document.getElementById("countryBtnWrap"),
+  langFilter: document.getElementById("langFilter"),
+  langBtnWrap: document.getElementById("langBtnWrap"),
+  mainNavBtns: document.querySelectorAll(".main-nav-btn"),
+  themeBtn: document.getElementById("themeBtn"),
+  favBtnTop: document.getElementById("favBtnTop"),
+  memberBtn: document.getElementById("memberBtn"),
+  loadingTip: document.getElementById("loadingTip"),
+  emptyTip: document.getElementById("emptyTip"),
+  modal: document.getElementById("memberModal"),
+  closeModal: document.querySelector(".closeModal"),
+  paypalWrap: document.getElementById("paypal-button-container"),
+  toggleBrowse: document.getElementById("toggleBrowse"),
+  browseContent: document.getElementById("browseContent")
 };
+
 let state = { currentPage: 1, nowView: "hot", fullCountryList: [], paypalRetries: 0 };
 
-// ========== 智能频谱管理 ==========
-let audioContext = null;
-let sourceNode = null;
-let analyser = null;
-let animationId = null;
-let useRealSpectrum = false;   // 是否使用真实频谱
-const realCanvas = document.getElementById('realSpectrum');
-const cssSpectrum = document.getElementById('cssSpectrum');
-
-function stopRealSpectrum() {
-  if (animationId) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
+// ========== 最近播放管理 ==========
+function getRecent() {
+  try { const raw = localStorage.getItem(STORAGE_RECENT_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+}
+function saveRecent(list) {
+  try { localStorage.setItem(STORAGE_RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX))); } catch {}
+}
+function addToRecent(station) {
+  let recent = getRecent();
+  recent = recent.filter(s => s.stationuuid !== station.stationuuid);
+  recent.unshift(station);
+  if (recent.length > RECENT_MAX) recent.pop();
+  saveRecent(recent);
+  renderRecentlyPlayed();
+}
+function renderRecentlyPlayed() {
+  if (!dom.recentList) return;
+  const recent = getRecent();
+  if (recent.length === 0) {
+    dom.recentList.innerHTML = '<div class="empty-recent">No recent stations</div>';
+    return;
   }
-  if (sourceNode) {
-    try { sourceNode.disconnect(); } catch(e) {}
-    sourceNode = null;
-  }
-  if (analyser) {
-    try { analyser.disconnect(); } catch(e) {}
-    analyser = null;
-  }
-  if (audioContext) {
-    try { audioContext.close(); } catch(e) {}
-    audioContext = null;
-  }
-  if (realCanvas) realCanvas.style.display = 'none';
-  if (cssSpectrum) cssSpectrum.style.display = 'none';
+  dom.recentList.innerHTML = recent.map(s => `
+    <div class="recent-item" data-uuid="${escapeHtml(s.stationuuid)}">
+      <div class="recent-info">
+        <div class="recent-name">${escapeHtml(s.name)}</div>
+        <div class="recent-country">${escapeHtml(s.country || "Unknown")}</div>
+      </div>
+      <button class="recent-play-btn">Play</button>
+    </div>
+  `).join('');
+  // 绑定播放事件
+  document.querySelectorAll('.recent-item').forEach(item => {
+    const uuid = item.dataset.uuid;
+    const station = recent.find(s => s.stationuuid === uuid);
+    if (station) {
+      const btn = item.querySelector('.recent-play-btn');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playStation(station);
+      });
+      item.addEventListener('click', () => playStation(station));
+    }
+  });
 }
 
-function startCSSSpectrum() {
-  if (cssSpectrum) cssSpectrum.style.display = 'flex';
-  useRealSpectrum = false;
+// ========== Now Playing 更新 ==========
+function updateNowPlaying(station) {
+  if (dom.nowPlayingName) dom.nowPlayingName.innerText = escapeHtml(station.name);
+  if (dom.nowPlayingCountry) dom.nowPlayingCountry.innerText = station.country ? `📍 ${escapeHtml(station.country)}` : '';
+  if (dom.nowPlayingTags) dom.nowPlayingTags.innerText = station.tags ? `🏷️ ${escapeHtml(station.tags.slice(0, 80))}` : '';
 }
 
-function startRealSpectrum(audioElement) {
-  if (!audioElement || !realCanvas) return false;
+// ========== 播放核心 ==========
+async function playStation(station) {
+  if (!station.url) return;
+  dom.audioPlayer.pause();
+  dom.audioPlayer.src = "";
+  dom.audioPlayer.load();
   try {
-    if (audioContext) stopRealSpectrum();
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = ctx.createMediaElementSource(audioElement);
-    const analyserNode = ctx.createAnalyser();
-    analyserNode.fftSize = 256;
-    const bufferLength = analyserNode.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    
-    src.connect(analyserNode);
-    analyserNode.connect(ctx.destination);
-    
-    const canvas = realCanvas;
-    const canvasCtx = canvas.getContext('2d');
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    
-    function draw() {
-      if (!analyserNode || !canvasCtx) return;
-      animationId = requestAnimationFrame(draw);
-      analyserNode.getByteFrequencyData(dataArray);
-      const width = canvas.width, height = canvas.height;
-      const barWidth = (width / bufferLength) * 2;
-      let x = 0;
-      canvasCtx.clearRect(0, 0, width, height);
-      const isDark = document.documentElement.classList.contains('dark');
-      for (let i = 0; i < bufferLength; i++) {
-        const value = dataArray[i];
-        const percent = value / 255;
-        const barHeight = Math.max(4, percent * height);
-        const hue = 210 + (percent * 60);
-        const sat = isDark ? '80%' : '70%';
-        const lightness = isDark ? '60%' : '50%';
-        canvasCtx.fillStyle = `hsl(${hue}, ${sat}, ${lightness})`;
-        canvasCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
-        x += barWidth;
-      }
-    }
-    draw();
-    
-    audioContext = ctx;
-    sourceNode = src;
-    analyser = analyserNode;
-    
-    canvas.style.display = 'block';
-    if (cssSpectrum) cssSpectrum.style.display = 'none';
-    
-    // 恢复 AudioContext 状态
-    if (audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
-    return true;
+    updateNowPlaying(station);
+    dom.audioPlayer.src = station.url;
+    await dom.audioPlayer.play();
+    addToRecent(station);
   } catch (err) {
-    console.warn('真实频谱初始化失败，回退 CSS 模拟:', err);
-    return false;
+    dom.nowPlayingName.innerText = "Stream unavailable";
+    console.error("播放失败:", err);
   }
 }
 
-function stopSpectrum() {
-  stopRealSpectrum();
-  if (cssSpectrum) cssSpectrum.style.display = 'none';
-}
-
-function initSpectrum(audioElement) {
-  stopSpectrum();
-  if (!audioElement) return;
-  // 尝试真实频谱
-  const success = startRealSpectrum(audioElement);
-  if (!success) {
-    startCSSSpectrum();
-  }
-}
-
-function isMember() { try { return localStorage.getItem(STORAGE_MEMBER_KEY) === "paid"; } catch { return false; } }
-function setMemberPaid() { try { localStorage.setItem(STORAGE_MEMBER_KEY, "paid"); } catch {} document.documentElement.classList.add("no-ad"); }
-function initAdState() { if (isMember()) document.documentElement.classList.add("no-ad"); }
-function showLoading() { dom.loadingTip.style.display = "block"; dom.emptyTip.style.display = "none"; }
-function hideLoading() { dom.loadingTip.style.display = "none"; }
-function showEmptyTip(text) { dom.emptyTip.textContent = text; dom.emptyTip.style.display = "block"; dom.stationList.innerHTML = ""; }
-function hideAllFilter() { dom.pageBox.style.display = "none"; dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; }
-
+// ========== 收藏 ==========
 function getFavorites() { try { const raw = localStorage.getItem(STORAGE_FAV_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } }
 function saveFavorites(list) { try { localStorage.setItem(STORAGE_FAV_KEY, JSON.stringify(list)); } catch {} }
 function isFav(uuid) { return getFavorites().some(s => s.stationuuid === uuid); }
@@ -216,266 +186,171 @@ function toggleFav(stationObj) {
   saveFavorites(favs);
   return idx === -1;
 }
-function loadFavList() { hideAllFilter(); const favs = getFavorites(); if (!favs.length) return showEmptyTip("暂无收藏电台，点击 ☆ 添加"); renderStationList(favs); }
-
-function getHistory() { try { const raw = localStorage.getItem(STORAGE_HIST_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } }
-function saveHistory(list) { try { localStorage.setItem(STORAGE_HIST_KEY, JSON.stringify(list)); } catch {} }
-function addHistory(stationObj) {
-  let hist = getHistory().filter(s => s.stationuuid !== stationObj.stationuuid);
-  hist.unshift(stationObj);
-  if (hist.length > HIST_MAX) hist.pop();
-  saveHistory(hist);
+function loadFavList() {
+  const favs = getFavorites();
+  if (!favs.length) { dom.stationList.innerHTML = '<div class="empty-recent">No favorites yet</div>'; return; }
+  renderStationList(favs);
 }
-function loadHistoryList() { hideAllFilter(); const hist = getHistory(); if (!hist.length) return showEmptyTip("暂无播放历史"); renderStationList(hist); }
 
-function initTheme() { let saved = "light"; try { saved = localStorage.getItem(STORAGE_THEME_KEY) || "light"; } catch {} document.documentElement.className = saved + (isMember() ? " no-ad" : ""); }
-function toggleTheme() { const html = document.documentElement; const adClass = html.classList.contains("no-ad") ? " no-ad" : ""; const newTheme = html.classList.contains("light") ? "dark" : "light"; html.className = newTheme + adClass; try { localStorage.setItem(STORAGE_THEME_KEY, newTheme); } catch {} }
-
-function loadPayPal() { if (document.querySelector('#paypal-sdk')) return; const script = document.createElement('script'); script.id = 'paypal-sdk'; script.src = 'https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=USD'; script.defer = true; document.head.appendChild(script); }
-function initPayPal() {
-  state.paypalRetries++;
-  if (state.paypalRetries > 8) { dom.memberBtn.style.display = "none"; return; }
-  if (typeof paypal === "undefined") { loadPayPal(); setTimeout(initPayPal, 800); return; }
-  paypal.Buttons({ createOrder: (_, actions) => actions.order.create({ purchase_units: [{ amount: { value: "1.99" } }] }), onApprove: async (_, actions) => { try { await actions.order.capture(); setMemberPaid(); alert("支付成功！页面将刷新，广告已移除。"); location.reload(); } catch (err) { alert("支付验证失败，请刷新后重试"); console.error(err); } }, onError: () => { if (state.paypalRetries > 4) dom.memberBtn.style.display = "none"; } }).render(dom.paypalWrap);
-}
-function bindModalEvent() { dom.memberBtn.onclick = () => dom.modal.style.display = "block"; dom.closeModal.onclick = () => dom.modal.style.display = "none"; window.onclick = (e) => e.target === dom.modal && (dom.modal.style.display = "none"); document.addEventListener("keydown", (e) => { if (e.key === "Escape" && dom.modal.style.display === "block") dom.modal.style.display = "none"; }); }
-
+// ========== 渲染浏览区电台列表 ==========
 function renderStationList(rawList) {
-  dom.stationList.innerHTML = ""; dom.emptyTip.style.display = "none";
+  if (!dom.stationList) return;
+  dom.stationList.innerHTML = "";
   const safe = rawList.filter(isSafeStation);
-  if (!safe.length) return showEmptyTip("没有找到电台，请尝试其他分类");
+  if (!safe.length) { dom.stationList.innerHTML = "<div>No stations found</div>"; return; }
   safe.forEach(station => {
-    const div = document.createElement("div"); div.className = "station-item";
+    const div = document.createElement("div");
+    div.className = "station-item";
     const favStatus = isFav(station.stationuuid);
-    div.innerHTML = `<button class="fav-card-btn ${favStatus ? 'active' : ''}" data-uuid="${escapeHtml(station.stationuuid)}">${favStatus ? '★' : '☆'}</button><h4>${escapeHtml(station.name)}</h4><p>国家: ${escapeHtml(station.country || "未知")}</p><p>语言: ${escapeHtml(station.language || "未知")}</p><small>标签: ${escapeHtml((station.tags || "").slice(0, 60))}</small>`;
+    div.innerHTML = `
+      <button class="fav-card-btn ${favStatus ? 'active' : ''}" data-uuid="${escapeHtml(station.stationuuid)}">${favStatus ? '★' : '☆'}</button>
+      <h4>${escapeHtml(station.name)}</h4>
+      <p>${escapeHtml(station.country || "Unknown")}</p>
+      <small>${escapeHtml((station.tags || "").slice(0, 60))}</small>
+    `;
     div.dataset.station = JSON.stringify(station);
+    div.addEventListener('click', (e) => {
+      if (e.target.classList.contains('fav-card-btn')) return;
+      playStation(station);
+    });
+    const favBtn = div.querySelector('.fav-card-btn');
+    favBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const newState = toggleFav(station);
+      favBtn.textContent = newState ? "★" : "☆";
+      favBtn.classList.toggle('active', newState);
+    });
     dom.stationList.appendChild(div);
   });
-  dom.stationList.onclick = (e) => {
-    const item = e.target.closest(".station-item"); if (!item) return;
-    const favBtn = e.target.closest(".fav-card-btn"); const station = JSON.parse(item.dataset.station);
-    if (favBtn) { e.stopPropagation(); const newState = toggleFav(station); favBtn.textContent = newState ? "★" : "☆"; favBtn.classList.toggle("active", newState); return; }
-    playStation(station);
-  };
 }
 
-async function playStation(station) {
-  stopSpectrum();
-  dom.audioPlayer.pause();
-  dom.audioPlayer.src = "";
-  dom.audioPlayer.load();
-  try {
-    dom.playTitle.innerText = escapeHtml(station.name);
-    dom.audioPlayer.src = station.url;
-    await dom.audioPlayer.play();
-    addHistory(station);
-    initSpectrum(dom.audioPlayer);
-  } catch (err) {
-    dom.playTitle.innerText = "该电台无法播放，试试其他的吧";
-    console.error("播放失败:", err);
-    stopSpectrum();
-  }
-}
-function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
+// ========== 数据加载接口 ==========
+async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
+async function loadAllStations() { showLoading(); hideAllFilter(); const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
+async function loadByTag(tag) { showLoading(); hideAllFilter(); const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
+async function loadByCountry(name) { showLoading(); hideAllFilter(); const data = await safeFetch(`/stations/search?country=${encodeURIComponent(name)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
+async function loadByLang(name) { showLoading(); hideAllFilter(); const data = await safeFetch(`/stations/search?language=${encodeURIComponent(name)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 
-// ========== 国家列表（下拉框版本） ==========
+function updatePageText() { if (dom.pageNumText) dom.pageNumText.textContent = `Page ${state.currentPage}`; }
+function showLoading() { if (dom.loadingTip) dom.loadingTip.style.display = "block"; }
+function hideLoading() { if (dom.loadingTip) dom.loadingTip.style.display = "none"; }
+function showEmptyTip(text) { if (dom.emptyTip) { dom.emptyTip.textContent = text; dom.emptyTip.style.display = "block"; } }
+function hideAllFilter() {
+  if (dom.pageBox) dom.pageBox.style.display = "none";
+  if (dom.typeFilter) dom.typeFilter.style.display = "none";
+  if (dom.countryFilter) dom.countryFilter.style.display = "none";
+  if (dom.langFilter) dom.langFilter.style.display = "none";
+}
+
+// ========== 国家下拉框 ==========
 const FALLBACK_COUNTRIES = [
-  { name: "United States", code: "US" },
-  { name: "United Kingdom", code: "GB" },
-  { name: "Canada", code: "CA" },
-  { name: "Australia", code: "AU" },
-  { name: "Germany", code: "DE" },
-  { name: "France", code: "FR" },
-  { name: "Italy", code: "IT" },
-  { name: "Spain", code: "ES" },
-  { name: "Japan", code: "JP" },
-  { name: "China", code: "CN" },
-  { name: "India", code: "IN" },
-  { name: "Brazil", code: "BR" },
-  { name: "Mexico", code: "MX" },
-  { name: "Netherlands", code: "NL" },
-  { name: "Sweden", code: "SE" },
-  { name: "Norway", code: "NO" },
-  { name: "Poland", code: "PL" },
-  { name: "Russia", code: "RU" }
+  { name: "United States", code: "US" }, { name: "United Kingdom", code: "GB" },
+  { name: "Canada", code: "CA" }, { name: "Australia", code: "AU" },
+  { name: "Germany", code: "DE" }, { name: "France", code: "FR" },
+  { name: "Italy", code: "IT" }, { name: "Spain", code: "ES" },
+  { name: "Japan", code: "JP" }, { name: "China", code: "CN" },
+  { name: "India", code: "IN" }, { name: "Brazil", code: "BR" },
+  { name: "Mexico", code: "MX" }, { name: "Netherlands", code: "NL" },
+  { name: "Sweden", code: "SE" }, { name: "Norway", code: "NO" },
+  { name: "Poland", code: "PL" }, { name: "Russia", code: "RU" }
 ];
-
 async function loadCachedCountries() {
   let data = await safeFetch("/countries", fetchOption);
-  if (!data || data.length === 0) {
-    data = FALLBACK_COUNTRIES;
-  } else {
-    data = data.map(c => ({ name: c.name, code: c.iso_3166_1 }));
-  }
+  if (!data || data.length === 0) data = FALLBACK_COUNTRIES;
+  else data = data.map(c => ({ name: c.name, code: c.iso_3166_1 }));
   data.sort((a, b) => a.name.localeCompare(b.name));
   state.fullCountryList = data;
   renderCountryButtons(data);
 }
-
 function renderCountryButtons(list) {
+  if (!dom.countryBtnWrap) return;
   dom.countryBtnWrap.innerHTML = "";
-  if (!list || list.length === 0) {
-    dom.countryBtnWrap.innerHTML = "<p style='padding:10px;text-align:center;'>暂无国家数据</p>";
-    return;
-  }
-  const selectWrapper = document.createElement("div");
-  selectWrapper.className = "country-select-wrapper";
+  const wrapper = document.createElement("div");
+  wrapper.className = "country-select-wrapper";
   const select = document.createElement("select");
   select.className = "country-select";
-  select.id = "countrySelect";
-  const defaultOption = document.createElement("option");
-  defaultOption.value = "";
-  defaultOption.textContent = "-- 选择国家 / Select Country --";
-  defaultOption.disabled = true;
-  defaultOption.selected = true;
-  select.appendChild(defaultOption);
+  const defaultOpt = document.createElement("option");
+  defaultOpt.value = "";
+  defaultOpt.textContent = "-- Select Country --";
+  defaultOpt.disabled = true;
+  defaultOpt.selected = true;
+  select.appendChild(defaultOpt);
   list.forEach(ct => {
-    const option = document.createElement("option");
-    option.value = ct.code;
-    option.textContent = ct.name;
-    select.appendChild(option);
+    const opt = document.createElement("option");
+    opt.value = ct.code;
+    opt.textContent = ct.name;
+    select.appendChild(opt);
   });
   select.addEventListener("change", (e) => {
-    const countryCode = e.target.value;
-    if (countryCode) loadByCountryCode(countryCode);
+    if (e.target.value) loadByCountryCode(e.target.value);
   });
-  selectWrapper.appendChild(select);
-  dom.countryBtnWrap.appendChild(selectWrapper);
+  wrapper.appendChild(select);
+  dom.countryBtnWrap.appendChild(wrapper);
 }
-
-async function loadByCountryCode(countryCode) {
+async function loadByCountryCode(code) {
   showLoading();
   hideAllFilter();
-  dom.countryFilter.style.display = "flex";
-  const url = `/stations/search?countrycode=${encodeURIComponent(countryCode)}&limit=120`;
-  let stations = await safeFetch(url, fetchOption);
-  if (!stations || stations.length === 0) {
-    const topData = await safeFetch("/stations/topclick/500", fetchOption);
-    if (topData && topData.length) {
-      const lowerCode = countryCode.toLowerCase();
-      stations = topData.filter(station => (station.countrycode || "").toLowerCase() === lowerCode);
-      if (stations.length === 0) {
-        const countryName = FALLBACK_COUNTRIES.find(c => c.code === countryCode)?.name || "";
-        if (countryName) stations = topData.filter(station => (station.country || "").toLowerCase().includes(countryName.toLowerCase()));
-      }
-    }
-  }
-  if (stations.length === 0) {
-    showEmptyTip(`未找到 ${countryCode} 的电台，请稍后重试或选择其他国家。`);
-    hideLoading();
-    return;
-  }
-  renderStationList(stations);
+  if (dom.countryFilter) dom.countryFilter.style.display = "flex";
+  const data = await safeFetch(`/stations/search?countrycode=${encodeURIComponent(code)}&limit=120`, fetchOption);
+  renderStationList(data);
   hideLoading();
 }
 
-// ========== 主要语言列表 ==========
+// ========== 语言按钮 ==========
 const MAJOR_LANGUAGES = [
-  { display: "🇬🇧 English (英语)", searchKey: "english" },
-  { display: "🇨🇳 Chinese (汉语)", searchKey: "chinese" },
-  { display: "🇪🇸 Spanish (西班牙语)", searchKey: "spanish" },
-  { display: "🇫🇷 French (法语)", searchKey: "french" },
-  { display: "🇩🇪 German (德语)", searchKey: "german" },
-  { display: "🇯🇵 Japanese (日语)", searchKey: "japanese" },
-  { display: "🇰🇷 Korean (韩语)", searchKey: "korean" },
-  { display: "🇸🇦 Arabic (阿拉伯语)", searchKey: "arabic" },
-  { display: "🇷🇺 Russian (俄语)", searchKey: "russian" },
-  { display: "🇵🇹 Portuguese (葡萄牙语)", searchKey: "portuguese" },
-  { display: "🇮🇹 Italian (意大利语)", searchKey: "italian" }
+  { display: "🇬🇧 English", searchKey: "english" },
+  { display: "🇨🇳 Chinese", searchKey: "chinese" },
+  { display: "🇪🇸 Spanish", searchKey: "spanish" },
+  { display: "🇫🇷 French", searchKey: "french" },
+  { display: "🇩🇪 German", searchKey: "german" },
+  { display: "🇯🇵 Japanese", searchKey: "japanese" },
+  { display: "🇰🇷 Korean", searchKey: "korean" },
+  { display: "🇸🇦 Arabic", searchKey: "arabic" },
+  { display: "🇷🇺 Russian", searchKey: "russian" },
+  { display: "🇵🇹 Portuguese", searchKey: "portuguese" },
+  { display: "🇮🇹 Italian", searchKey: "italian" }
 ];
-
 function renderLanguageButtons() {
+  if (!dom.langBtnWrap) return;
   dom.langBtnWrap.innerHTML = "";
   MAJOR_LANGUAGES.forEach(lang => {
     const btn = document.createElement("button");
     btn.className = "lang-btn";
     btn.textContent = lang.display;
     btn.dataset.searchkey = lang.searchKey;
+    btn.addEventListener("click", () => loadByLanguageKey(lang.searchKey));
     dom.langBtnWrap.appendChild(btn);
   });
 }
-
-function bindLanguageEvents() {
-  if (dom.langBtnWrap) {
-    dom.langBtnWrap.addEventListener('click', (e) => {
-      const targetBtn = e.target.closest('.lang-btn');
-      if (!targetBtn) return;
-      const searchKey = targetBtn.dataset.searchkey;
-      if (searchKey) loadByLanguageKey(searchKey);
-    });
-  }
-}
-
-async function loadByLanguageKey(langKey) {
+async function loadByLanguageKey(key) {
   showLoading();
   hideAllFilter();
-  dom.langFilter.style.display = "flex";
-  let stations = [];
-  const queries = [
-    `language=${encodeURIComponent(langKey)}`,
-    `language=${encodeURIComponent(langKey.toLowerCase())}`
-  ];
-  if (langKey === 'chinese') queries.push(`language=mandarin`, `language=zh`);
-  const codeMap = { english:'en', spanish:'es', french:'fr', german:'de', japanese:'ja', korean:'ko', arabic:'ar', russian:'ru', portuguese:'pt', italian:'it' };
-  if (codeMap[langKey]) {
-    queries.push(`language=${codeMap[langKey]}`);
-    queries.push(`languagecode=${codeMap[langKey]}`);
-  }
-  for (const q of queries) {
-    const url = `/stations/search?${q}&limit=120`;
-    const data = await safeFetch(url, fetchOption);
-    if (data && data.length) { stations = data; break; }
-  }
-  if (stations.length === 0) {
-    const topData = await safeFetch("/stations/topclick/500", fetchOption);
-    if (topData && topData.length) {
-      stations = topData.filter(station => {
-        const langField = (station.language || "").toLowerCase();
-        const countryField = (station.country || "").toLowerCase();
-        return langField.includes(langKey) || countryField.includes(langKey);
-      });
-    }
-  }
-  if (stations.length === 0) {
-    showEmptyTip(`未找到 ${langKey} 语言的电台，请稍后重试或选择其他语言。`);
-    hideLoading();
-    return;
-  }
-  renderStationList(stations);
+  if (dom.langFilter) dom.langFilter.style.display = "flex";
+  const data = await safeFetch(`/stations/search?language=${encodeURIComponent(key)}&limit=120`, fetchOption);
+  renderStationList(data);
   hideLoading();
 }
 
-async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
-async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
-async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
-
+// ========== 搜索 ==========
 const handleSearch = debounce(async () => {
-  const q = dom.searchInput.value.trim();
-  if (!q) { showEmptyTip("请输入搜索关键词"); return; }
-  console.log("🔍 搜索关键词:", q);
+  const q = dom.searchInput?.value.trim();
+  if (!q) { showEmptyTip("Enter search keyword"); return; }
   showLoading();
   hideAllFilter();
-  dom.pageBox.style.display = "none";
   let stations = [];
   for (const mirror of API_MIRRORS) {
     const url = `${mirror}/stations/search?q=${encodeURIComponent(q)}&limit=100`;
     try {
       const res = await fetch(url, fetchOption);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.length) { stations = data; break; }
-      }
-    } catch (e) { console.warn(`镜像 ${mirror} 失败`, e); }
+      if (res.ok) { const data = await res.json(); if (data.length) { stations = data; break; } }
+    } catch(e) { console.warn(e); }
   }
-  if (stations.length === 0) {
-    showEmptyTip(`没有找到与“${q}”相关的电台，请尝试其他关键词（如 rock, jazz, news）`);
-    hideLoading();
-    return;
-  }
+  if (!stations.length) { showEmptyTip(`No results for "${q}"`); hideLoading(); return; }
   renderStationList(stations);
   hideLoading();
 });
 
+// ========== 导航 ==========
 function bindNavEvents() {
   dom.mainNavBtns.forEach(btn => {
     btn.onclick = async () => {
@@ -483,35 +358,65 @@ function bindNavEvents() {
       btn.classList.add("active");
       state.nowView = btn.dataset.view;
       state.currentPage = 1;
+      hideAllFilter();
       switch (state.nowView) {
         case "hot": await loadHot(); break;
-        case "all": await loadAllStations(); break;
-        case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break;
-        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("从下拉框选择国家"); await loadCachedCountries(); break;
-        case "lang": hideAllFilter(); dom.langFilter.style.display = "flex"; renderLanguageButtons(); bindLanguageEvents(); showEmptyTip("点击下方语言加载电台"); break;
+        case "all": if (dom.pageBox) dom.pageBox.style.display = "flex"; await loadAllStations(); break;
+        case "type": if (dom.typeFilter) dom.typeFilter.style.display = "flex"; break;
+        case "country": if (dom.countryFilter) dom.countryFilter.style.display = "flex"; if (!state.fullCountryList.length) await loadCachedCountries(); break;
+        case "lang": if (dom.langFilter) dom.langFilter.style.display = "flex"; renderLanguageButtons(); break;
       }
     };
   });
 }
-function bindPageEvents() { dom.prevPage.onclick = async () => { if (state.nowView !== "all" || state.currentPage <= 1) return; state.currentPage--; await loadAllStations(); }; dom.nextPage.onclick = async () => { if (state.nowView !== "all") return; state.currentPage++; await loadAllStations(); }; }
-function bindVisibilityPause() { 
-  document.addEventListener("visibilitychange", () => { 
-    if (document.hidden && !dom.audioPlayer.paused) {
-      dom.audioPlayer.pause();
-      stopSpectrum();
-    }
-  }); 
-  window.addEventListener('beforeunload', () => { 
-    dom.audioPlayer.pause(); 
-    dom.audioPlayer.src = ""; 
-    stopSpectrum();
-  }); 
+function bindPageEvents() {
+  if (dom.prevPage) dom.prevPage.onclick = async () => { if (state.nowView === "all" && state.currentPage > 1) { state.currentPage--; await loadAllStations(); } };
+  if (dom.nextPage) dom.nextPage.onclick = async () => { if (state.nowView === "all") { state.currentPage++; await loadAllStations(); } };
 }
+
+// ========== 主题 & 会员 ==========
+function initTheme() { let saved = "light"; try { saved = localStorage.getItem(STORAGE_THEME_KEY) || "light"; } catch {} document.documentElement.className = saved + (isMember() ? " no-ad" : ""); }
+function toggleTheme() { const html = document.documentElement; const adClass = html.classList.contains("no-ad") ? " no-ad" : ""; const newTheme = html.classList.contains("light") ? "dark" : "light"; html.className = newTheme + adClass; try { localStorage.setItem(STORAGE_THEME_KEY, newTheme); } catch {} }
+function isMember() { try { return localStorage.getItem(STORAGE_MEMBER_KEY) === "paid"; } catch { return false; } }
+function setMemberPaid() { try { localStorage.setItem(STORAGE_MEMBER_KEY, "paid"); } catch {} document.documentElement.classList.add("no-ad"); }
+function initAdState() { if (isMember()) document.documentElement.classList.add("no-ad"); }
+function loadPayPal() { if (document.querySelector('#paypal-sdk')) return; const script = document.createElement('script'); script.id = 'paypal-sdk'; script.src = 'https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=USD'; script.defer = true; document.head.appendChild(script); }
+function initPayPal() {
+  state.paypalRetries++;
+  if (state.paypalRetries > 8) { if (dom.memberBtn) dom.memberBtn.style.display = "none"; return; }
+  if (typeof paypal === "undefined") { loadPayPal(); setTimeout(initPayPal, 800); return; }
+  paypal.Buttons({ createOrder: (_, actions) => actions.order.create({ purchase_units: [{ amount: { value: "1.99" } }] }), onApprove: async (_, actions) => { try { await actions.order.capture(); setMemberPaid(); alert("Payment success! Refresh to activate ad-free."); location.reload(); } catch (err) { alert("Payment failed"); console.error(err); } }, onError: () => { if (state.paypalRetries > 4) dom.memberBtn.style.display = "none"; } }).render(dom.paypalWrap);
+}
+function bindModalEvent() { if (dom.memberBtn) dom.memberBtn.onclick = () => dom.modal.style.display = "block"; if (dom.closeModal) dom.closeModal.onclick = () => dom.modal.style.display = "none"; window.onclick = (e) => { if (e.target === dom.modal) dom.modal.style.display = "none"; }; }
+function bindVisibilityPause() { document.addEventListener("visibilitychange", () => { if (document.hidden && !dom.audioPlayer.paused) dom.audioPlayer.pause(); }); window.addEventListener('beforeunload', () => { dom.audioPlayer.pause(); dom.audioPlayer.src = ""; }); }
+
+// ========== 折叠浏览区 ==========
+if (dom.toggleBrowse) {
+  dom.toggleBrowse.addEventListener('click', () => {
+    const isVisible = dom.browseContent.style.display !== 'none';
+    dom.browseContent.style.display = isVisible ? 'none' : 'block';
+    dom.toggleBrowse.querySelector('.toggle-icon').textContent = isVisible ? '▼' : '▲';
+  });
+}
+
 function bindAllEvents() {
-  dom.favBtnTop.onclick = loadFavList; dom.historyBtnTop.onclick = loadHistoryList; dom.themeBtn.onclick = toggleTheme;
-  dom.searchBtn.onclick = handleSearch; dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch());
+  dom.favBtnTop.onclick = loadFavList;
+  dom.themeBtn.onclick = toggleTheme;
+  dom.searchBtn.onclick = handleSearch;
+  dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch());
   dom.typeBtns.forEach(btn => btn.onclick = () => loadByTag(btn.dataset.tag));
-  bindNavEvents(); bindPageEvents(); bindModalEvent(); bindVisibilityPause();
+  bindNavEvents();
+  bindPageEvents();
+  bindModalEvent();
+  bindVisibilityPause();
 }
-async function initApp() { initTheme(); initAdState(); bindAllEvents(); await loadHot(); setTimeout(initPayPal, 1200); }
+
+async function initApp() {
+  initTheme();
+  initAdState();
+  bindAllEvents();
+  await loadHot();
+  renderRecentlyPlayed();
+  setTimeout(initPayPal, 1200);
+}
 window.addEventListener("DOMContentLoaded", initApp);
