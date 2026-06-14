@@ -1,4 +1,263 @@
-/* ========== 字母分组折叠国家列表 ========== */
+/* ========== 基础重置 ========== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    background: #f0f2f5;
+    color: #1e2a3e;
+    transition: background 0.3s ease, color 0.3s ease;
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+
+html.dark body {
+    background: #0a0c10;
+    color: #e4e6eb;
+}
+
+/* ========== 头部 ========== */
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    font-size: 2rem;
+    background: linear-gradient(135deg, #2196F3, #9C27B0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: -0.5px;
+}
+
+.header p {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    margin-top: 6px;
+}
+
+.header-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.header-btn {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 40px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.header-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.member-btn {
+    background: #ff9800;
+}
+
+/* ========== 搜索框 ========== */
+.search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 12px 18px;
+    border-radius: 50px;
+    border: 1px solid #ccc;
+    background: white;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+html.dark .search-box input {
+    background: #1e1f24;
+    border-color: #333;
+    color: white;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 3px rgba(33,150,243,0.2);
+}
+
+.search-box button {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 0 24px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.search-box button:hover {
+    background: #1976D2;
+    transform: scale(1.02);
+}
+
+/* ========== 主导航 ========== */
+.main-nav {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 25px;
+    justify-content: center;
+}
+
+.main-nav-btn {
+    background: #e9ecef;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 40px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+    color: #2c3e50;
+}
+
+html.dark .main-nav-btn {
+    background: #2c2f36;
+    color: #ddd;
+}
+
+.main-nav-btn.active {
+    background: #2196F3;
+    color: white;
+    box-shadow: 0 2px 6px rgba(33,150,243,0.3);
+}
+
+.main-nav-btn:hover:not(.active) {
+    background: #d0d4dc;
+    transform: translateY(-1px);
+}
+
+/* ========== 筛选器通用样式 ========== */
+.type-filter, .country-filter, .lang-filter {
+    display: none;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 20px;
+    backdrop-filter: blur(2px);
+}
+
+html.dark .type-filter,
+html.dark .country-filter,
+html.dark .lang-filter {
+    background: rgba(30,30,40,0.6);
+}
+
+.type-btn, .lang-btn {
+    padding: 8px 16px;
+    border-radius: 30px;
+    border: none;
+    background: #ffffff;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+html.dark .type-btn,
+html.dark .lang-btn {
+    background: #2c2f36;
+    color: #eee;
+}
+
+.type-btn:hover, .lang-btn:hover {
+    transform: translateY(-2px);
+    background: #2196F3;
+    color: white;
+    box-shadow: 0 4px 10px rgba(33,150,243,0.3);
+}
+
+/* ========== 国家按钮网格布局（在分组内） ========== */
+.country-btn {
+    padding: 6px 14px;
+    border-radius: 30px;
+    border: none;
+    background: #e9ecef;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+html.dark .country-btn {
+    background: #2c2f36;
+    color: #eee;
+}
+.country-btn:hover {
+    background: #2196F3;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* ========== 字母索引栏（横向） ========== */
+.country-index-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 40px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+html.dark .country-index-bar {
+    background: #1e1f24;
+}
+
+.index-letter {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e9ecef;
+    border: none;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+html.dark .index-letter {
+    background: #2c2f36;
+    color: #eee;
+}
+.index-letter:hover {
+    background: #2196F3;
+    color: white;
+    transform: scale(1.05);
+}
+
+/* ========== 字母分组折叠 ========== */
 .country-group {
     margin-bottom: 16px;
     border-radius: 16px;
@@ -59,9 +318,9 @@ html.dark .group-count {
 }
 
 .country-group-content {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, auto));
+    gap: 10px;
     padding: 12px 16px;
     background: white;
     border-radius: 0 0 16px 16px;
@@ -70,23 +329,243 @@ html.dark .country-group-content {
     background: #1a1c22;
 }
 
-/* 国家按钮基础样式（若原有样式不一致，可保留） */
-.country-btn {
-    padding: 6px 14px;
-    border-radius: 30px;
-    border: none;
-    background: #e9ecef;
-    cursor: pointer;
-    font-size: 0.85rem;
+/* ========== 播放器区域 ========== */
+.player {
+    background: white;
+    padding: 16px;
+    border-radius: 28px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+html.dark .player {
+    background: #1a1c22;
+}
+
+#playTitle {
+    font-size: 1rem;
     font-weight: 500;
-    transition: all 0.2s;
+    margin-bottom: 12px;
+    white-space: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
 }
-html.dark .country-btn {
-    background: #2c2f36;
-    color: #eee;
+
+audio {
+    width: 100%;
+    border-radius: 30px;
+    outline: none;
 }
-.country-btn:hover {
+
+/* ========== 电台卡片 ========== */
+.station-item {
+    position: relative;
+    background: white;
+    padding: 16px;
+    margin: 12px 0;
+    border-radius: 20px;
+    border: 1px solid #eef2f6;
+    transition: all 0.25s ease;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+html.dark .station-item {
+    background: #1a1c22;
+    border-color: #2c2f36;
+}
+
+.station-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    border-color: #2196F3;
+}
+
+.station-item h4 {
+    margin-bottom: 6px;
+    font-size: 1.1rem;
+    padding-right: 40px;
+}
+
+.station-item p, .station-item small {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.fav-card-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: 0.1s;
+}
+
+.fav-card-btn.active {
+    color: #ffb800;
+    text-shadow: 0 0 2px rgba(0,0,0,0.2);
+}
+
+/* ========== 分页 ========== */
+.page-box {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    padding: 20px 0;
+    align-items: center;
+}
+
+#prevPage, #nextPage {
+    padding: 8px 20px;
+    border-radius: 40px;
+    border: none;
     background: #2196F3;
     color: white;
-    transform: translateY(-2px);
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+#prevPage:hover, #nextPage:hover {
+    background: #1976D2;
+    transform: scale(1.02);
+}
+
+#pageNum {
+    font-weight: 500;
+}
+
+/* ========== 弹窗 ========== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background: #fff;
+    margin: 15vh auto;
+    padding: 28px;
+    width: 90%;
+    max-width: 420px;
+    border-radius: 32px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+}
+
+html.dark .modal-content {
+    background: #1e1f24;
+    color: #eee;
+}
+
+.closeModal {
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 8px;
+    transition: 0.1s;
+}
+
+.closeModal:hover {
+    color: #f44336;
+}
+
+/* ========== 加载 & 空状态 ========== */
+#loadingTip {
+    text-align: center;
+    padding: 30px;
+    font-size: 1rem;
+    color: #2196F3;
+}
+
+#emptyTip {
+    text-align: center;
+    padding: 40px;
+    background: #f8f9fa;
+    border-radius: 24px;
+    margin: 20px 0;
+}
+
+html.dark #emptyTip {
+    background: #1e1f24;
+}
+
+/* ========== 页脚 ========== */
+.footer {
+    text-align: center;
+    font-size: 0.7rem;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+    opacity: 0.7;
+}
+
+html.dark .footer {
+    border-top-color: #2c2f36;
+}
+
+a {
+    color: #2196F3;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* ========== 会员去广告 ========== */
+html.no-ad .ad-wrapper {
+    display: none !important;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 640px) {
+    body {
+        padding: 12px;
+    }
+    .header h1 {
+        font-size: 1.6rem;
+    }
+    .header-buttons {
+        gap: 8px;
+    }
+    .header-btn {
+        padding: 6px 14px;
+        font-size: 0.75rem;
+    }
+    .main-nav {
+        gap: 8px;
+    }
+    .main-nav-btn {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+    .type-btn, .country-btn, .lang-btn {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+    .station-item {
+        padding: 12px;
+    }
+    .station-item h4 {
+        font-size: 0.95rem;
+    }
+    .index-letter {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+    }
+    .country-group-content {
+        grid-template-columns: repeat(auto-fill, minmax(100px, auto));
+        gap: 8px;
+    }
 }
