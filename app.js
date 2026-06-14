@@ -81,6 +81,7 @@ const dom = {
   mainNavBtns: document.querySelectorAll(".main-nav-btn"), typeFilter: document.getElementById("typeFilter"),
   typeBtns: document.querySelectorAll(".type-btn"), countryFilter: document.getElementById("countryFilter"),
   countryBtnWrap: document.getElementById("countryBtnWrap"), countrySearchInput: document.getElementById("countrySearch"),
+  langFilter: document.getElementById("langFilter"), langBtnWrap: document.getElementById("langBtnWrap"),
   pageBox: document.getElementById("pageBox"), prevPage: document.getElementById("prevPage"),
   nextPage: document.getElementById("nextPage"), pageNumText: document.getElementById("pageNum"),
   adWrappers: document.querySelectorAll(".ad-wrapper")
@@ -93,7 +94,7 @@ function initAdState() { if (isMember()) document.documentElement.classList.add(
 function showLoading() { dom.loadingTip.style.display = "block"; dom.emptyTip.style.display = "none"; }
 function hideLoading() { dom.loadingTip.style.display = "none"; }
 function showEmptyTip(text) { dom.emptyTip.textContent = text; dom.emptyTip.style.display = "block"; dom.stationList.innerHTML = ""; }
-function hideAllFilter() { dom.pageBox.style.display = "none"; dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; }
+function hideAllFilter() { dom.pageBox.style.display = "none"; dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; }
 
 function getFavorites() { try { const raw = localStorage.getItem(STORAGE_FAV_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } }
 function saveFavorites(list) { try { localStorage.setItem(STORAGE_FAV_KEY, JSON.stringify(list)); } catch {} }
@@ -153,7 +154,7 @@ async function playStation(station) {
 }
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// 国家列表
+// ========== 国家列表 ==========
 async function loadCachedCountries() {
   try { const cacheStr = localStorage.getItem(STORAGE_COUNTRY_CACHE); if (cacheStr) { const cache = JSON.parse(cacheStr); if (Date.now() - cache.time < CACHE_EXPIRE) { state.fullCountryList = cache.data; renderCountryButtons(state.fullCountryList); return; } } } catch {}
   const data = await safeFetch("/countries", fetchOption);
@@ -166,39 +167,105 @@ function renderCountryButtons(list) {
   list.forEach(ct => { const btn = document.createElement("button"); btn.className = "country-btn"; btn.textContent = `${escapeHtml(ct.name)} (${ct.stationcount})`; btn.dataset.country = ct.name; btn.onclick = () => loadByCountry(ct.name); dom.countryBtnWrap.appendChild(btn); });
 }
 
-// 加载数据接口
+// ========== 主要语言列表（内置，不依赖 API） ==========
+const MAJOR_LANGUAGES = [
+  { name: "English", display: "🇬🇧 English (英语)" },
+  { name: "Chinese", display: "🇨🇳 Chinese (汉语)" },
+  { name: "Spanish", display: "🇪🇸 Spanish (西班牙语)" },
+  { name: "French", display: "🇫🇷 French (法语)" },
+  { name: "German", display: "🇩🇪 German (德语)" },
+  { name: "Japanese", display: "🇯🇵 Japanese (日语)" },
+  { name: "Korean", display: "🇰🇷 Korean (韩语)" },
+  { name: "Arabic", display: "🇸🇦 Arabic (阿拉伯语)" },
+  { name: "Russian", display: "🇷🇺 Russian (俄语)" },
+  { name: "Portuguese", display: "🇵🇹 Portuguese (葡萄牙语)" },
+  { name: "Italian", display: "🇮🇹 Italian (意大利语)" }
+];
+
+function renderLanguageButtons() {
+  dom.langBtnWrap.innerHTML = "";
+  MAJOR_LANGUAGES.forEach(lang => {
+    const btn = document.createElement("button");
+    btn.className = "lang-btn";
+    btn.textContent = lang.display;
+    btn.dataset.lang = lang.name;
+    btn.onclick = () => loadByLanguage(lang.name);
+    dom.langBtnWrap.appendChild(btn);
+  });
+}
+
+async function loadByLanguage(langName) {
+  showLoading();
+  hideAllFilter();
+  dom.langFilter.style.display = "flex";
+  
+  // 尝试多种名称变体
+  const variants = [langName, langName.toLowerCase(), langName.charAt(0).toUpperCase() + langName.slice(1).toLowerCase()];
+  if (langName.toLowerCase() === "chinese") variants.push("zh", "chi", "zho");
+  if (langName.toLowerCase() === "english") variants.push("en");
+  if (langName.toLowerCase() === "spanish") variants.push("es");
+  if (langName.toLowerCase() === "french") variants.push("fr");
+  if (langName.toLowerCase() === "german") variants.push("de");
+  if (langName.toLowerCase() === "japanese") variants.push("ja");
+  if (langName.toLowerCase() === "korean") variants.push("ko");
+  if (langName.toLowerCase() === "arabic") variants.push("ar");
+  if (langName.toLowerCase() === "russian") variants.push("ru");
+  if (langName.toLowerCase() === "portuguese") variants.push("pt");
+  if (langName.toLowerCase() === "italian") variants.push("it");
+  
+  let stations = [];
+  for (const v of variants) {
+    const url = `/stations/search?language=${encodeURIComponent(v)}&limit=120`;
+    const data = await safeFetch(url, fetchOption);
+    if (data && data.length > 0) {
+      stations = data;
+      break;
+    }
+  }
+  if (stations.length === 0) {
+    showEmptyTip(`未找到 ${langName} 语言的电台，请稍后重试`);
+    hideLoading();
+    return;
+  }
+  renderStationList(stations);
+  hideLoading();
+}
+
+// ========== 加载数据接口 ==========
 async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
-async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
+async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 async function loadByCountry(name) { showLoading(); hideAllFilter(); dom.countryFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?country=${encodeURIComponent(name)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 
 const handleSearch = debounce(async () => { const q = dom.searchInput.value.trim(); if (!q) return; showLoading(); hideAllFilter(); const data = await safeFetch(`/stations/search?q=${encodeURIComponent(q)}`, fetchOption); renderStationList(data); hideLoading(); });
 const filterCountry = debounce(() => { const kw = dom.countrySearchInput.value.trim().toLowerCase(); const filtered = state.fullCountryList.filter(ct => ct.name.toLowerCase().includes(kw)); renderCountryButtons(filtered); });
 
-function bindNavEvents() { 
-  dom.mainNavBtns.forEach(btn => { 
-    btn.onclick = async () => { 
-      dom.mainNavBtns.forEach(b => b.classList.remove("active")); 
-      btn.classList.add("active"); 
-      state.nowView = btn.dataset.view; 
-      state.currentPage = 1; 
-      switch (state.nowView) { 
-        case "hot": await loadHot(); break; 
-        case "all": await loadAllStations(); break; 
-        case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break; 
-        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("搜索或点击国家加载电台"); if (!state.fullCountryList.length) await loadCachedCountries(); break; 
-      } 
-    }; 
-  }); 
+// 导航切换
+function bindNavEvents() {
+  dom.mainNavBtns.forEach(btn => {
+    btn.onclick = async () => {
+      dom.mainNavBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.nowView = btn.dataset.view;
+      state.currentPage = 1;
+      switch (state.nowView) {
+        case "hot": await loadHot(); break;
+        case "all": await loadAllStations(); break;
+        case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break;
+        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("搜索或点击国家加载电台"); if (!state.fullCountryList.length) await loadCachedCountries(); break;
+        case "lang": hideAllFilter(); dom.langFilter.style.display = "flex"; renderLanguageButtons(); showEmptyTip("点击下方语言加载电台"); break;
+      }
+    };
+  });
 }
 function bindPageEvents() { dom.prevPage.onclick = async () => { if (state.nowView !== "all" || state.currentPage <= 1) return; state.currentPage--; await loadAllStations(); }; dom.nextPage.onclick = async () => { if (state.nowView !== "all") return; state.currentPage++; await loadAllStations(); }; }
 function bindVisibilityPause() { document.addEventListener("visibilitychange", () => { if (document.hidden && !dom.audioPlayer.paused) dom.audioPlayer.pause(); }); window.addEventListener('beforeunload', () => { dom.audioPlayer.pause(); dom.audioPlayer.src = ""; }); }
-function bindAllEvents() { 
-  dom.favBtnTop.onclick = loadFavList; dom.historyBtnTop.onclick = loadHistoryList; dom.themeBtn.onclick = toggleTheme; 
-  dom.searchBtn.onclick = handleSearch; dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch()); 
-  dom.countrySearchInput.addEventListener("input", filterCountry); 
-  dom.typeBtns.forEach(btn => btn.onclick = () => loadByTag(btn.dataset.tag)); 
-  bindNavEvents(); bindPageEvents(); bindModalEvent(); bindVisibilityPause(); 
+function bindAllEvents() {
+  dom.favBtnTop.onclick = loadFavList; dom.historyBtnTop.onclick = loadHistoryList; dom.themeBtn.onclick = toggleTheme;
+  dom.searchBtn.onclick = handleSearch; dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch());
+  dom.countrySearchInput.addEventListener("input", filterCountry);
+  dom.typeBtns.forEach(btn => btn.onclick = () => loadByTag(btn.dataset.tag));
+  bindNavEvents(); bindPageEvents(); bindModalEvent(); bindVisibilityPause();
 }
 async function initApp() { initTheme(); initAdState(); bindAllEvents(); await loadHot(); setTimeout(initPayPal, 1200); }
 window.addEventListener("DOMContentLoaded", initApp);
