@@ -34,7 +34,7 @@
         </div>
     </header>
 
-    <!-- 广告位 -->
+    <!-- 广告位顶部 -->
     <div class="ad-block ad-top ad-wrapper">
         <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="1111111111" data-ad-format="auto" data-full-width-responsive="true"></ins>
         <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
@@ -46,9 +46,9 @@
         <button id="searchBtn">Search</button>
     </div>
 
-    <!-- 主内容区：Now Playing + Recently Played -->
+    <!-- 主内容区域 -->
     <div class="main-content">
-        <!-- Now Playing 区域 -->
+        <!-- Now Playing 卡片 -->
         <div class="now-playing-card" id="nowPlayingCard">
             <div class="now-playing-header">Now Playing</div>
             <div class="now-playing-info">
@@ -72,7 +72,7 @@
             </div>
         </div>
 
-        <!-- 浏览电台折叠区（保留原搜索/分类功能） -->
+        <!-- 浏览电台折叠区（保留所有高级功能） -->
         <div class="browse-section">
             <div class="section-header toggle-header" id="toggleBrowse">
                 <span>Browse Stations</span>
@@ -108,7 +108,7 @@
                     <div class="lang-list" id="langBtnWrap"></div>
                 </div>
 
-                <!-- 电台列表容器（搜索结果/分类结果） -->
+                <!-- 电台列表容器 -->
                 <div id="stationList" class="station-list"></div>
                 <div class="page-box" id="pageBox" style="display: none;">
                     <button id="prevPage">← Prev</button>
@@ -122,11 +122,13 @@
     <div id="loadingTip" style="text-align:center;padding:15px;display:none;">Loading...</div>
     <div id="emptyTip" style="text-align:center;padding:20px;display:none;"></div>
 
+    <!-- 中间广告位 -->
     <div class="ad-block ad-middle ad-wrapper">
         <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="2222222222" data-ad-format="auto" data-full-width-responsive="true"></ins>
         <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 
+    <!-- 会员弹窗 -->
     <div id="memberModal" class="modal" role="dialog" aria-modal="true">
         <div class="modal-content">
             <span class="closeModal" tabindex="0">&times;</span>
