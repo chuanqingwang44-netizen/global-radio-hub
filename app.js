@@ -154,37 +154,21 @@ async function playStation(station) {
 }
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// ========== 国家列表（强制显示后备列表） ==========
+// ========== 国家列表（强制使用内置后备列表） ==========
 const FALLBACK_COUNTRIES = [
   "United States", "United Kingdom", "Canada", "Australia", "Germany", "France", "Italy", "Spain",
   "Japan", "China", "India", "Brazil", "Mexico", "Netherlands", "Sweden", "Norway", "Poland", "Russia"
 ];
+
 async function loadCachedCountries() {
-  try {
-    const cacheStr = localStorage.getItem(STORAGE_COUNTRY_CACHE);
-    if (cacheStr) {
-      const cache = JSON.parse(cacheStr);
-      if (Date.now() - cache.time < CACHE_EXPIRE) {
-        state.fullCountryList = cache.data;
-        renderCountryButtons(state.fullCountryList);
-        return;
-      }
-    }
-  } catch {}
-  
-  let data = await safeFetch("/countries", fetchOption);
-  let useFallback = false;
-  if (!data || data.length === 0) {
-    useFallback = true;
-    data = FALLBACK_COUNTRIES.map(name => ({ name, stationcount: 0 }));
-  }
+  // 直接强制使用内置国家列表，不请求 API，不读取缓存
+  const data = FALLBACK_COUNTRIES.map(name => ({ name, stationcount: 0 }));
   state.fullCountryList = data;
-  try { localStorage.setItem(STORAGE_COUNTRY_CACHE, JSON.stringify({ time: Date.now(), data })); } catch {}
   renderCountryButtons(data);
-  if (useFallback) {
-    showEmptyTip("国家列表加载失败，使用内置列表（仍可正常使用）");
-  }
+  // 可选：显示一条提示（也可以不显示，让用户无感）
+  // showEmptyTip("使用内置国家列表（点击按钮即可加载电台）");
 }
+
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
   if (!list || list.length === 0) {
@@ -235,7 +219,7 @@ async function loadByCountry(countryName) {
   hideLoading();
 }
 
-// ========== 主要语言列表 ==========
+// ========== 主要语言列表（硬编码） ==========
 const MAJOR_LANGUAGES = [
   { name: "English", code: "en", keywords: ["english", "en"] },
   { name: "Chinese", code: "zh", keywords: ["chinese", "zh", "chi", "zho"] },
