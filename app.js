@@ -1,9 +1,6 @@
 // ========== Radio Browser 镜像列表 ==========
 const API_MIRRORS = [
-  "https://de1.api.radio-browser.info/json",
-  "https://nl1.api.radio-browser.info/json",
-  "https://fr1.api.radio-browser.info/json",
-  "https://us1.api.radio-browser.info/json"
+  "https://radio.wcqyt.workers.dev?target="
 ];
 let currentMirrorIndex = 0;
 
