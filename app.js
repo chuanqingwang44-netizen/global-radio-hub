@@ -154,17 +154,80 @@ async function playStation(station) {
 }
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// ========== 国家列表 ==========
+// ========== 国家列表（增强：如果API失败，使用内置主要国家） ==========
+const FALLBACK_COUNTRIES = [
+  "United States", "United Kingdom", "Canada", "Australia", "Germany", "France", "Italy", "Spain", 
+  "Japan", "China", "India", "Brazil", "Mexico", "Netherlands", "Sweden", "Norway", "Poland", "Russia"
+];
 async function loadCachedCountries() {
-  try { const cacheStr = localStorage.getItem(STORAGE_COUNTRY_CACHE); if (cacheStr) { const cache = JSON.parse(cacheStr); if (Date.now() - cache.time < CACHE_EXPIRE) { state.fullCountryList = cache.data; renderCountryButtons(state.fullCountryList); return; } } } catch {}
-  const data = await safeFetch("/countries", fetchOption);
+  try {
+    const cacheStr = localStorage.getItem(STORAGE_COUNTRY_CACHE);
+    if (cacheStr) {
+      const cache = JSON.parse(cacheStr);
+      if (Date.now() - cache.time < CACHE_EXPIRE) {
+        state.fullCountryList = cache.data;
+        renderCountryButtons(state.fullCountryList);
+        return;
+      }
+    }
+  } catch {}
+  let data = await safeFetch("/countries", fetchOption);
+  if (!data || data.length === 0) {
+    // API失败，使用内置国家列表构造虚拟数据
+    data = FALLBACK_COUNTRIES.map(name => ({ name, stationcount: 0 }));
+    showEmptyTip("国家列表加载失败，使用内置列表（仍可正常使用）");
+  }
   state.fullCountryList = data;
   try { localStorage.setItem(STORAGE_COUNTRY_CACHE, JSON.stringify({ time: Date.now(), data })); } catch {}
   renderCountryButtons(data);
 }
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
-  list.forEach(ct => { const btn = document.createElement("button"); btn.className = "country-btn"; btn.textContent = `${escapeHtml(ct.name)} (${ct.stationcount})`; btn.dataset.country = ct.name; btn.onclick = () => loadByCountry(ct.name); dom.countryBtnWrap.appendChild(btn); });
+  list.forEach(ct => { 
+    const btn = document.createElement("button"); 
+    btn.className = "country-btn"; 
+    btn.textContent = `${escapeHtml(ct.name)} (${ct.stationcount || 0})`; 
+    btn.dataset.country = ct.name; 
+    btn.onclick = () => loadByCountry(ct.name); 
+    dom.countryBtnWrap.appendChild(btn); 
+  });
+}
+
+// ========== 国家电台加载（带兜底） ==========
+async function loadByCountry(countryName) {
+  showLoading();
+  hideAllFilter();
+  dom.countryFilter.style.display = "flex";
+  
+  // 尝试多种名称变体
+  const variants = [countryName, countryName.toLowerCase(), countryName.charAt(0).toUpperCase() + countryName.slice(1).toLowerCase()];
+  let stations = [];
+  for (const v of variants) {
+    const url = `/stations/search?country=${encodeURIComponent(v)}&limit=120`;
+    const data = await safeFetch(url, fetchOption);
+    if (data && data.length > 0) {
+      stations = data;
+      break;
+    }
+  }
+  // 兜底：从热门电台中筛选国家字段匹配
+  if (stations.length === 0) {
+    const topData = await safeFetch("/stations/topclick/500", fetchOption);
+    if (topData && topData.length) {
+      const lowerName = countryName.toLowerCase();
+      stations = topData.filter(station => {
+        const c = (station.country || "").toLowerCase();
+        return c.includes(lowerName);
+      });
+    }
+  }
+  if (stations.length === 0) {
+    showEmptyTip(`未找到 ${countryName} 的电台，请稍后重试或选择其他国家。`);
+    hideLoading();
+    return;
+  }
+  renderStationList(stations);
+  hideLoading();
 }
 
 // ========== 主要语言列表（内置） ==========
@@ -250,13 +313,12 @@ async function loadByLanguage(lang) {
   hideLoading();
 }
 
-// ========== 加载数据接口 ==========
+// ========== 其他数据接口 ==========
 async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
 async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
-async function loadByCountry(name) { showLoading(); hideAllFilter(); dom.countryFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?country=${encodeURIComponent(name)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 
-// ========== 搜索修复（关键） ==========
+// ========== 搜索修复 ==========
 const handleSearch = debounce(async () => {
   const q = dom.searchInput.value.trim();
   if (!q) {
