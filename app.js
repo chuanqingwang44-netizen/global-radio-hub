@@ -1,7 +1,7 @@
 const API_BASE = "https://api.radio-browser.info/json";
 const UA_LIST = [
     "GlobalRadioHub/1.0 (Contact: your-email@xxx.com)",
-    "RadioHubWeb/1.0; contact your-email@xxx.com",
+    "RadioHubWeb/1.0; contact wcqyt@163.com",
     "GlobalFMHub StaticSite/CloudflarePages"
 ];
 function getRandomUA(){ return UA_LIST[Math.floor(Math.random()*UA_LIST.length)]; }
