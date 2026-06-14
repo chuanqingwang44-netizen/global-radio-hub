@@ -1,4 +1,4 @@
-/* ========== 基础重置 ========== */
+/* ========== Reset ========== */
 * {
     margin: 0;
     padding: 0;
@@ -21,7 +21,7 @@ html.dark body {
     color: #e2e8f0;
 }
 
-/* ========== 头部 ========== */
+/* Header */
 .header {
     text-align: center;
     margin-bottom: 32px;
@@ -70,11 +70,7 @@ html.dark body {
     box-shadow: 0 6px 12px rgba(0,0,0,0.1);
 }
 
-.member-btn {
-    background: #f97316;
-}
-
-/* ========== 主导航 ========== */
+/* Main nav */
 .main-nav {
     display: flex;
     gap: 12px;
@@ -110,7 +106,7 @@ html.dark .main-nav-btn {
     transform: translateY(-1px);
 }
 
-/* ========== 筛选器通用 ========== */
+/* Filters */
 .type-filter, .country-filter, .lang-filter {
     display: none;
     flex-wrap: wrap;
@@ -153,14 +149,6 @@ html.dark .lang-btn {
     box-shadow: 0 6px 12px rgba(30,144,255,0.3);
 }
 
-/* 国家下拉框 */
-.country-select-wrapper {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    margin-bottom: 10px;
-}
-
 .country-select {
     width: 100%;
     max-width: 400px;
@@ -186,18 +174,7 @@ html.dark .country-select {
     background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
 }
 
-.country-select:hover {
-    border-color: #1e90ff;
-    box-shadow: 0 2px 8px rgba(30,144,255,0.2);
-}
-
-.country-select:focus {
-    outline: none;
-    border-color: #1e90ff;
-    box-shadow: 0 0 0 3px rgba(30,144,255,0.3);
-}
-
-/* ========== 播放器区域（含均衡器、弹幕） ========== */
+/* Player */
 .player {
     position: relative;
     background: linear-gradient(135deg, #ffffff, #f8fafc);
@@ -250,18 +227,6 @@ html.dark .player {
 html.dark #playTitle {
     color: #f1f5f9;
 }
-.player.playing #playTitle {
-    background: linear-gradient(120deg, #1e90ff, #f97316);
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    animation: titleShine 1.5s ease infinite;
-}
-@keyframes titleShine {
-    0% { opacity: 0.8; }
-    50% { opacity: 1; text-shadow: 0 0 4px rgba(30,144,255,0.5); }
-    100% { opacity: 0.8; }
-}
 audio {
     width: 100%;
     border-radius: 60px;
@@ -278,20 +243,8 @@ audio::-webkit-media-controls-panel {
 html.dark audio::-webkit-media-controls-panel {
     background: #334155;
 }
-audio::-webkit-media-controls-play-button {
-    background-color: #1e90ff;
-    border-radius: 50%;
-}
-audio::-webkit-media-controls-current-time-display,
-audio::-webkit-media-controls-time-remaining-display {
-    color: #0f172a;
-}
-html.dark audio::-webkit-media-controls-current-time-display,
-html.dark audio::-webkit-media-controls-time-remaining-display {
-    color: #e2e8f0;
-}
 
-/* 均衡器按钮行 */
+/* Equalizer */
 .eq-panel {
     display: flex;
     gap: 12px;
@@ -317,57 +270,8 @@ html.dark .eq-btn {
     color: white;
     box-shadow: 0 2px 6px rgba(30,144,255,0.3);
 }
-.danmaku-toggle {
-    background: #1e293b;
-    color: white;
-    border: none;
-    border-radius: 40px;
-    padding: 6px 16px;
-    cursor: pointer;
-    font-size: 0.8rem;
-}
-.share-btn {
-    background: #f97316;
-    border: none;
-    border-radius: 40px;
-    padding: 6px 16px;
-    color: white;
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: 0.2s;
-}
-.share-btn:hover {
-    background: #ea580c;
-    transform: scale(1.02);
-}
-.danmaku-input-area {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-}
-.danmaku-input-area input {
-    flex: 1;
-    padding: 8px 12px;
-    border-radius: 40px;
-    border: 1px solid #cbd5e1;
-    background: white;
-}
-html.dark .danmaku-input-area input {
-    background: #1e293b;
-    color: #e2e8f0;
-    border-color: #475569;
-}
-.danmaku-input-area button {
-    background: #1e90ff;
-    border: none;
-    padding: 0 20px;
-    border-radius: 40px;
-    color: white;
-    cursor: pointer;
-    font-weight: 500;
-}
 
-/* CSS 模拟频谱（全宽、密集） */
+/* Spectrum */
 .spectrum-container {
     display: flex;
     align-items: flex-end;
@@ -384,7 +288,6 @@ html.dark .danmaku-input-area input {
 html.dark .spectrum-container {
     background: rgba(255, 255, 255, 0.05);
 }
-
 .spectrum-bar {
     flex: 1;
     background: linear-gradient(180deg, #1e90ff, #8b5cf6);
@@ -394,45 +297,41 @@ html.dark .spectrum-container {
     transform-origin: bottom;
     min-width: 2px;
 }
-
-/* 30根柱子的不同动画延迟和起始高度（示例，实际由JS生成但样式保证动态） */
-.spectrum-bar:nth-child(1) { animation-delay: 0.00s; height: 15px; }
-.spectrum-bar:nth-child(2) { animation-delay: 0.03s; height: 25px; }
-.spectrum-bar:nth-child(3) { animation-delay: 0.06s; height: 40px; }
-.spectrum-bar:nth-child(4) { animation-delay: 0.09s; height: 55px; }
-.spectrum-bar:nth-child(5) { animation-delay: 0.12s; height: 30px; }
-.spectrum-bar:nth-child(6) { animation-delay: 0.15s; height: 45px; }
-.spectrum-bar:nth-child(7) { animation-delay: 0.18s; height: 20px; }
-.spectrum-bar:nth-child(8) { animation-delay: 0.21s; height: 60px; }
-.spectrum-bar:nth-child(9) { animation-delay: 0.24s; height: 35px; }
-.spectrum-bar:nth-child(10){ animation-delay: 0.27s; height: 50px; }
-.spectrum-bar:nth-child(11){ animation-delay: 0.30s; height: 18px; }
-.spectrum-bar:nth-child(12){ animation-delay: 0.33s; height: 42px; }
-.spectrum-bar:nth-child(13){ animation-delay: 0.36s; height: 28px; }
-.spectrum-bar:nth-child(14){ animation-delay: 0.39s; height: 48px; }
-.spectrum-bar:nth-child(15){ animation-delay: 0.42s; height: 22px; }
-.spectrum-bar:nth-child(16){ animation-delay: 0.45s; height: 58px; }
-.spectrum-bar:nth-child(17){ animation-delay: 0.48s; height: 32px; }
-.spectrum-bar:nth-child(18){ animation-delay: 0.51s; height: 52px; }
-.spectrum-bar:nth-child(19){ animation-delay: 0.54s; height: 26px; }
-.spectrum-bar:nth-child(20){ animation-delay: 0.57s; height: 46px; }
-.spectrum-bar:nth-child(21){ animation-delay: 0.60s; height: 38px; }
-.spectrum-bar:nth-child(22){ animation-delay: 0.63s; height: 62px; }
-.spectrum-bar:nth-child(23){ animation-delay: 0.66s; height: 20px; }
-.spectrum-bar:nth-child(24){ animation-delay: 0.69s; height: 54px; }
-.spectrum-bar:nth-child(25){ animation-delay: 0.72s; height: 32px; }
-.spectrum-bar:nth-child(26){ animation-delay: 0.75s; height: 44px; }
-.spectrum-bar:nth-child(27){ animation-delay: 0.78s; height: 28px; }
-.spectrum-bar:nth-child(28){ animation-delay: 0.81s; height: 50px; }
-.spectrum-bar:nth-child(29){ animation-delay: 0.84s; height: 36px; }
-.spectrum-bar:nth-child(30){ animation-delay: 0.87s; height: 56px; }
+.spectrum-bar:nth-child(1) { animation-delay: 0.00s; }
+.spectrum-bar:nth-child(2) { animation-delay: 0.03s; }
+.spectrum-bar:nth-child(3) { animation-delay: 0.06s; }
+.spectrum-bar:nth-child(4) { animation-delay: 0.09s; }
+.spectrum-bar:nth-child(5) { animation-delay: 0.12s; }
+.spectrum-bar:nth-child(6) { animation-delay: 0.15s; }
+.spectrum-bar:nth-child(7) { animation-delay: 0.18s; }
+.spectrum-bar:nth-child(8) { animation-delay: 0.21s; }
+.spectrum-bar:nth-child(9) { animation-delay: 0.24s; }
+.spectrum-bar:nth-child(10){ animation-delay: 0.27s; }
+.spectrum-bar:nth-child(11){ animation-delay: 0.30s; }
+.spectrum-bar:nth-child(12){ animation-delay: 0.33s; }
+.spectrum-bar:nth-child(13){ animation-delay: 0.36s; }
+.spectrum-bar:nth-child(14){ animation-delay: 0.39s; }
+.spectrum-bar:nth-child(15){ animation-delay: 0.42s; }
+.spectrum-bar:nth-child(16){ animation-delay: 0.45s; }
+.spectrum-bar:nth-child(17){ animation-delay: 0.48s; }
+.spectrum-bar:nth-child(18){ animation-delay: 0.51s; }
+.spectrum-bar:nth-child(19){ animation-delay: 0.54s; }
+.spectrum-bar:nth-child(20){ animation-delay: 0.57s; }
+.spectrum-bar:nth-child(21){ animation-delay: 0.60s; }
+.spectrum-bar:nth-child(22){ animation-delay: 0.63s; }
+.spectrum-bar:nth-child(23){ animation-delay: 0.66s; }
+.spectrum-bar:nth-child(24){ animation-delay: 0.69s; }
+.spectrum-bar:nth-child(25){ animation-delay: 0.72s; }
+.spectrum-bar:nth-child(26){ animation-delay: 0.75s; }
+.spectrum-bar:nth-child(27){ animation-delay: 0.78s; }
+.spectrum-bar:nth-child(28){ animation-delay: 0.81s; }
+.spectrum-bar:nth-child(29){ animation-delay: 0.84s; }
+.spectrum-bar:nth-child(30){ animation-delay: 0.87s; }
 
 @keyframes bounce {
     0% { height: 8px; opacity: 0.5; }
     100% { height: 65px; opacity: 1; }
 }
-
-/* 播放时加快跳动频率 */
 .player.playing .spectrum-container {
     background: rgba(30,144,255,0.08);
 }
@@ -440,7 +339,7 @@ html.dark .spectrum-container {
     animation-duration: 0.3s;
 }
 
-/* ========== 电台卡片 ========== */
+/* Station Cards */
 .station-item {
     position: relative;
     background: white;
@@ -486,7 +385,7 @@ html.dark .station-item {
     text-shadow: 0 0 2px rgba(0,0,0,0.2);
 }
 
-/* ========== AI 推荐栏 ========== */
+/* AI Recommendation */
 #aiRecommendBox {
     margin: 20px 0;
     padding: 12px;
@@ -511,7 +410,7 @@ html.dark #aiRecommendList .station-item {
     background: #1e293b;
 }
 
-/* ========== 分页 ========== */
+/* Pagination */
 .page-box {
     display: flex;
     gap: 16px;
@@ -537,44 +436,7 @@ html.dark #aiRecommendList .station-item {
     font-weight: 500;
 }
 
-/* ========== 弹窗 ========== */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.6);
-    backdrop-filter: blur(6px);
-}
-.modal-content {
-    background: white;
-    margin: 15vh auto;
-    padding: 28px;
-    width: 90%;
-    max-width: 420px;
-    border-radius: 36px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-}
-html.dark .modal-content {
-    background: #1e293b;
-    color: #e2e8f0;
-}
-.closeModal {
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    padding: 0 8px;
-    transition: 0.1s;
-}
-.closeModal:hover {
-    color: #f97316;
-}
-
-/* ========== 加载 & 空状态 ========== */
+/* Loading & Empty */
 #loadingTip {
     text-align: center;
     padding: 40px;
@@ -592,7 +454,7 @@ html.dark #emptyTip {
     background: #1e293b;
 }
 
-/* ========== 页脚 ========== */
+/* Footer */
 .footer {
     text-align: center;
     font-size: 0.7rem;
@@ -612,65 +474,16 @@ a:hover {
     text-decoration: underline;
 }
 
-/* ========== 会员去广告 ========== */
-html.no-ad .ad-wrapper {
-    display: none !important;
-}
-
-/* ========== 响应式 ========== */
+/* Responsive */
 @media (max-width: 640px) {
-    body {
-        padding: 16px;
-    }
-    .header h1 {
-        font-size: 1.6rem;
-    }
-    .header-buttons {
-        gap: 8px;
-    }
-    .header-btn {
-        padding: 6px 14px;
-        font-size: 0.75rem;
-    }
-    .main-nav {
-        gap: 8px;
-    }
-    .main-nav-btn {
-        padding: 6px 14px;
-        font-size: 0.75rem;
-    }
-    .type-btn, .lang-btn {
-        padding: 5px 12px;
-        font-size: 0.7rem;
-    }
-    .country-select {
-        max-width: 100%;
-        font-size: 0.9rem;
-        padding: 10px 14px;
-    }
-    .station-item {
-        padding: 12px;
-    }
-    .station-item h4 {
-        font-size: 0.9rem;
-    }
-    .player {
-        padding: 16px;
-    }
-    #playTitle {
-        font-size: 0.9rem;
-    }
-    .spectrum-container {
-        height: 50px;
-    }
-    .spectrum-bar {
-        min-width: 1px;
-    }
-    .eq-btn, .danmaku-toggle, .share-btn {
-        padding: 4px 12px;
-        font-size: 0.7rem;
-    }
-    .danmaku-input-area input {
-        font-size: 0.8rem;
-    }
+    body { padding: 16px; }
+    .header h1 { font-size: 1.6rem; }
+    .header-btn { padding: 6px 14px; font-size: 0.75rem; }
+    .main-nav-btn { padding: 6px 14px; font-size: 0.75rem; }
+    .type-btn, .lang-btn { padding: 5px 12px; font-size: 0.7rem; }
+    .station-item h4 { font-size: 0.9rem; }
+    .player { padding: 16px; }
+    #playTitle { font-size: 0.9rem; }
+    .spectrum-container { height: 50px; }
+    .eq-btn { padding: 4px 12px; font-size: 0.7rem; }
 }

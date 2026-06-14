@@ -6,47 +6,39 @@
     <meta name="apple-mobile-web-app-title" content="RadioHub">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="preconnect" href="https://de1.api.radio-browser.info">
-    <title>Global Radio Hub | AI推荐 · 均衡器 · 弹幕 · 分享</title>
-    <meta name="description" content="全球免费电台聚合，AI个性推荐，专业均衡器，趣味弹幕，一键分享正在收听的好电台。">
+    <title>Global Radio Hub | AI Recommendation · Equalizer</title>
+    <meta name="description" content="Global free radio aggregator with AI recommendations, professional equalizer, favorites and history. Listen worldwide.">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header class="header">
-        <h1>🎙️ Global Radio Hub</h1>
-        <p>AI 推荐 · 均衡器 · 弹幕 · 一键分享</p>
+        <h1>🎙️ C.Q.Wang Radio Hub</h1>
         <div class="header-buttons">
-            <button id="themeBtn" class="header-btn">🌓 主题</button>
-            <button id="favBtnTop" class="header-btn">⭐ 我的收藏</button>
-            <button id="historyBtnTop" class="header-btn">🕒 播放历史</button>
-            <button id="memberBtn" class="header-btn member-btn">🚫 去广告</button>
+            <button id="themeBtn" class="header-btn">🌓 Theme</button>
+            <button id="favBtnTop" class="header-btn">⭐ My Favorites</button>
+            <button id="historyBtnTop" class="header-btn">🕒 Play History</button>
         </div>
     </header>
 
-    <!-- 广告位（保留） -->
-    <div class="ad-block ad-top ad-wrapper">
-        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="1111111111" data-ad-format="auto"></ins>
-        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    </div>
-
-    <!-- 主导航 -->
+    <!-- Main Navigation -->
     <div class="main-nav">
-        <button class="main-nav-btn active" data-view="hot">🔥 热门电台</button>
-        <button class="main-nav-btn" data-view="all">📻 全部电台</button>
-        <button class="main-nav-btn" data-view="type">🎸 按类型</button>
-        <button class="main-nav-btn" data-view="country">🌍 按国家</button>
-        <button class="main-nav-btn" data-view="lang">🗣️ 按语言</button>
+        <button class="main-nav-btn active" data-view="hot">🔥 Top Stations</button>
+        <button class="main-nav-btn" data-view="all">📻 All Stations</button>
+        <button class="main-nav-btn" data-view="type">🎸 By Genre</button>
+        <button class="main-nav-btn" data-view="country">🌍 By Country</button>
+        <button class="main-nav-btn" data-view="lang">🗣️ By Language</button>
     </div>
 
-    <!-- 筛选器容器 -->
+    <!-- Filters -->
     <div class="type-filter" id="typeFilter" style="display:none;">
-        <button class="type-btn" data-tag="music">音乐</button>
-        <button class="type-btn" data-tag="pop">流行</button>
-        <button class="type-btn" data-tag="rock">摇滚</button>
-        <button class="type-btn" data-tag="jazz">爵士</button>
-        <button class="type-btn" data-tag="classical">古典</button>
-        <button class="type-btn" data-tag="talk">谈话</button>
-        <button class="type-btn" data-tag="news">新闻</button>
+        <button class="type-btn" data-tag="music">Music</button>
+        <button class="type-btn" data-tag="pop">Pop</button>
+        <button class="type-btn" data-tag="rock">Rock</button>
+        <button class="type-btn" data-tag="jazz">Jazz</button>
+        <button class="type-btn" data-tag="classical">Classical</button>
+        <button class="type-btn" data-tag="talk">Talk</button>
+        <button class="type-btn" data-tag="news">News</button>
     </div>
     <div class="country-filter" id="countryFilter" style="display:none;">
         <div id="countryBtnWrap"></div>
@@ -55,72 +47,45 @@
         <div id="langBtnWrap"></div>
     </div>
 
-    <!-- AI 推荐区域 -->
+    <!-- AI Recommendation Area -->
     <div id="aiRecommendBox" style="display:none; margin: 20px 0;">
-        <div style="font-weight:bold; margin-bottom:8px;">🤖 猜你喜欢 · 基于你的听歌历史</div>
+        <div style="font-weight:bold; margin-bottom:8px;">🤖 Recommended for You · Based on listening history</div>
         <div id="aiRecommendList" style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px;"></div>
     </div>
 
-    <!-- 播放器 + 均衡器 + 弹幕 -->
+    <!-- Player + Equalizer -->
     <div class="player" id="playerCard">
-        <h3 id="playTitle">✨ 选择一个电台开始播放</h3>
+        <h3 id="playTitle">✨ Select a station to start listening</h3>
         <audio id="audioPlayer" controls preload="none" crossorigin="anonymous"></audio>
         
-        <!-- 均衡器控制栏 -->
+        <!-- Equalizer Control Bar -->
         <div class="eq-panel">
-            <button class="eq-btn active" data-eq="normal">🎵 正常</button>
-            <button class="eq-btn" data-eq="bass">🔊 低音增强</button>
-            <button class="eq-btn" data-eq="vocal">🎙️ 人声清晰</button>
-            <button id="danmakuToggleBtn" class="danmaku-toggle">💬 弹幕开</button>
+            <button class="eq-btn active" data-eq="normal">🎵 Normal</button>
+            <button class="eq-btn" data-eq="bass">🔊 Bass Boost</button>
+            <button class="eq-btn" data-eq="vocal">🎙️ Vocal Clarity</button>
         </div>
 
-        <!-- 弹幕层 (滚动区域) -->
-        <div id="danmakuLayer" style="position: relative; height: 50px; overflow: hidden; margin-top: 12px; background: rgba(0,0,0,0.1); border-radius: 30px;"></div>
-        
-        <!-- 弹幕输入区 -->
-        <div class="danmaku-input-area" style="display:flex; gap:8px; margin-top:12px;">
-            <input type="text" id="danmakuInput" placeholder="发送弹幕..." maxlength="50">
-            <button id="sendDanmakuBtn">发射弹幕 ✈️</button>
-            <button id="shareStationBtn" class="share-btn">📢 分享当前电台</button>
-        </div>
-
-        <!-- CSS 频谱 (视觉特效) -->
+        <!-- CSS Spectrum Visualizer -->
         <div class="spectrum-container" id="spectrumContainer" style="display: none;">
-            <!-- 30个柱子由 js 动态生成 -->
+            <!-- 30 bars generated by JS -->
         </div>
     </div>
 
-    <!-- 电台列表容器 -->
-    <div id="loadingTip" style="text-align:center;padding:15px;display:none;">⏳ 加载中...</div>
+    <!-- Station List Container -->
+    <div id="loadingTip" style="text-align:center;padding:15px;display:none;">⏳ Loading stations...</div>
     <div id="emptyTip" style="text-align:center;padding:20px;display:none;"></div>
     <div class="list-container" id="stationList"></div>
 
-    <!-- 分页控件 -->
+    <!-- Pagination Controls -->
     <div class="page-box" id="pageBox" style="display:none;">
-        <button id="prevPage">← 上一页</button>
-        <span id="pageNum">第 1 页</span>
-        <button id="nextPage">下一页 →</button>
-    </div>
-
-    <!-- 底部广告 -->
-    <div class="ad-block ad-bottom ad-wrapper">
-        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="3333333333" data-ad-format="auto"></ins>
-        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    </div>
-
-    <!-- 会员弹窗 -->
-    <div id="memberModal" class="modal">
-        <div class="modal-content">
-            <span class="closeModal">&times;</span>
-            <h2>🚀 去广告会员</h2>
-            <p>$1.99 永久移除所有广告</p>
-            <div id="paypal-button-container"></div>
-            <p>支付后刷新页面生效</p>
-        </div>
+        <button id="prevPage">← Previous</button>
+        <span id="pageNum">Page 1</span>
+        <button id="nextPage">Next →</button>
     </div>
 
     <footer class="footer">
-        <p>本平台仅提供电台目录，不存储音频流。 | 联系方式: wcqyt@163.com</p>
+        <p>This platform only provides radio directory, does not store audio streams. | Contact: wcqyt@163.com</p>
+        <p><a href="privacy.html">Privacy & DMCA</a></p>
     </footer>
 
     <script src="app.js"></script>
