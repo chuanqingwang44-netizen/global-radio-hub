@@ -154,7 +154,7 @@ async function playStation(station) {
 }
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// ========== 国家列表（标准化：包含国家名称和两字母代码） ==========
+// ========== 国家列表（标准化） ==========
 const FALLBACK_COUNTRIES = [
   { name: "United States", code: "US" },
   { name: "United Kingdom", code: "GB" },
@@ -192,7 +192,6 @@ async function loadCachedCountries() {
   }
 }
 
-// ========== 国家列表：字母分组折叠 ==========
 function groupCountriesByLetter(list) {
     const groups = {};
     list.forEach(item => {
@@ -216,11 +215,32 @@ function renderCountryButtons(list) {
         dom.countryBtnWrap.innerHTML = "<p style='padding:10px;text-align:center;'>暂无国家数据</p>";
         return;
     }
+
     const grouped = groupCountriesByLetter(list);
     const letters = Object.keys(grouped);
+
+    // 创建字母索引栏（横向）
+    const indexBar = document.createElement("div");
+    indexBar.className = "country-index-bar";
+    letters.forEach(letter => {
+        const letterBtn = document.createElement("button");
+        letterBtn.textContent = letter;
+        letterBtn.className = "index-letter";
+        letterBtn.addEventListener("click", () => {
+            const targetGroup = document.getElementById(`group-${letter}`);
+            if (targetGroup) {
+                targetGroup.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        });
+        indexBar.appendChild(letterBtn);
+    });
+    dom.countryBtnWrap.appendChild(indexBar);
+
+    // 创建各个字母分组
     letters.forEach(letter => {
         const groupDiv = document.createElement("div");
         groupDiv.className = "country-group";
+        groupDiv.id = `group-${letter}`;
 
         const header = document.createElement("div");
         header.className = "country-group-header";
@@ -252,7 +272,6 @@ function renderCountryButtons(list) {
     });
 }
 
-// 使用标准 countrycode 参数搜索电台
 async function loadByCountryCode(countryCode) {
   showLoading();
   hideAllFilter();
@@ -287,7 +306,7 @@ async function loadByCountryCode(countryCode) {
   hideLoading();
 }
 
-// ========== 主要语言列表（显示用，searchKey 为全小写英文） ==========
+// ========== 主要语言列表 ==========
 const MAJOR_LANGUAGES = [
   { display: "🇬🇧 English (英语)", searchKey: "english" },
   { display: "🇨🇳 Chinese (汉语)", searchKey: "chinese" },
@@ -373,7 +392,6 @@ async function loadByLanguageKey(langKey) {
   hideLoading();
 }
 
-// ========== 其他数据接口 ==========
 async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
 async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
