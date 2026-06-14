@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-title" content="RadioHub">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="preconnect" href="https://api.radio-browser.info">
+    <link rel="preconnect" href="https://de1.api.radio-browser.info">
     <title>Global Radio Hub | Free Live Radio Worldwide</title>
     <meta name="description" content="Listen to thousands of free live radio stations, filter by country, genre, language. Browse all stations with pagination.">
     <meta name="keywords" content="radio,live radio,global radio,free fm,online radio">
@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="#2196F3">
     <link rel="stylesheet" href="style.css">
-    <!-- AdSense 延迟加载 -->
+    <!-- AdSense 延迟加载（替换成自己的ID） -->
     <script>
         window.addEventListener('load', () => {
             const adsScript = document.createElement('script');
@@ -51,7 +51,7 @@
         <button class="main-nav-btn" data-view="all">All Stations List</button>
         <button class="main-nav-btn" data-view="type">Browse By Genre</button>
         <button class="main-nav-btn" data-view="country">Browse By Country</button>
-        <button class="main-nav-btn" data-view="lang">Browse By Language</button>
+        <!-- 语言按钮已删除 -->
     </div>
 
     <div class="type-filter" id="typeFilter">
@@ -70,10 +70,7 @@
         <div class="country-list" id="countryBtnWrap"></div>
     </div>
 
-    <div class="lang-filter" id="langFilter">
-        <input id="langSearch" placeholder="Filter language name..." autocomplete="off"/>
-        <div class="lang-list" id="langBtnWrap"></div>
-    </div>
+    <!-- 语言筛选区域已删除 -->
 
     <div class="player">
         <h3 id="playTitle">Select a station to play</h3>
