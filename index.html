@@ -6,129 +6,121 @@
     <meta name="apple-mobile-web-app-title" content="RadioHub">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="preconnect" href="https://de1.api.radio-browser.info">
-    <title>Global Radio Hub | Free Live Radio Worldwide</title>
-    <meta name="description" content="Listen to thousands of free live radio stations, filter by country, genre, language. Browse all stations with pagination.">
-    <meta name="keywords" content="radio,live radio,global radio,free fm,online radio">
+    <title>Global Radio Hub | AI推荐 · 均衡器 · 弹幕 · 分享</title>
+    <meta name="description" content="全球免费电台聚合，AI个性推荐，专业均衡器，趣味弹幕，一键分享正在收听的好电台。">
     <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="#2196F3">
     <link rel="stylesheet" href="style.css">
-    <script>
-        window.addEventListener('load', () => {
-            const adsScript = document.createElement('script');
-            adsScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXX';
-            adsScript.crossOrigin = 'anonymous';
-            adsScript.async = true;
-            document.head.appendChild(adsScript);
-        });
-    </script>
 </head>
 <body>
     <header class="header">
-        <h1>Global Radio Hub</h1>
-        <p>Add to home screen for APP experience 📱</p>
+        <h1>🎙️ Global Radio Hub</h1>
+        <p>AI 推荐 · 均衡器 · 弹幕 · 一键分享</p>
         <div class="header-buttons">
-            <button id="themeBtn" class="header-btn">🌓 Theme</button>
-            <button id="favBtnTop" class="header-btn">My Favorites</button>
-            <button id="historyBtnTop" class="header-btn">Play History</button>
-            <button id="memberBtn" class="header-btn member-btn">Remove Ads</button>
+            <button id="themeBtn" class="header-btn">🌓 主题</button>
+            <button id="favBtnTop" class="header-btn">⭐ 我的收藏</button>
+            <button id="historyBtnTop" class="header-btn">🕒 播放历史</button>
+            <button id="memberBtn" class="header-btn member-btn">🚫 去广告</button>
         </div>
     </header>
 
+    <!-- 广告位（保留） -->
     <div class="ad-block ad-top ad-wrapper">
-        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="1111111111" data-ad-format="auto" data-full-width-responsive="true"></ins>
+        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="1111111111" data-ad-format="auto"></ins>
         <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 
-    <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Search radio station name..." autocomplete="off">
-        <button id="searchBtn">Search</button>
-    </div>
-
+    <!-- 主导航 -->
     <div class="main-nav">
-        <button class="main-nav-btn active" data-view="hot">Popular</button>
-        <button class="main-nav-btn" data-view="all">All Stations List</button>
-        <button class="main-nav-btn" data-view="type">Browse By Genre</button>
-        <button class="main-nav-btn" data-view="country">Browse By Country</button>
-        <button class="main-nav-btn" data-view="lang">Browse By Language</button>
+        <button class="main-nav-btn active" data-view="hot">🔥 热门电台</button>
+        <button class="main-nav-btn" data-view="all">📻 全部电台</button>
+        <button class="main-nav-btn" data-view="type">🎸 按类型</button>
+        <button class="main-nav-btn" data-view="country">🌍 按国家</button>
+        <button class="main-nav-btn" data-view="lang">🗣️ 按语言</button>
     </div>
 
-    <div class="type-filter" id="typeFilter">
-        <button class="type-btn" data-tag="music">Music</button>
-        <button class="type-btn" data-tag="pop">Pop</button>
-        <button class="type-btn" data-tag="rock">Rock</button>
-        <button class="type-btn" data-tag="jazz">Jazz</button>
-        <button class="type-btn" data-tag="classical">Classical</button>
-        <button class="type-btn" data-tag="talk">Talk / Podcast</button>
-        <button class="type-btn" data-tag="learning">Language Learning</button>
-        <button class="type-btn" data-tag="news">General News</button>
+    <!-- 筛选器容器 -->
+    <div class="type-filter" id="typeFilter" style="display:none;">
+        <button class="type-btn" data-tag="music">音乐</button>
+        <button class="type-btn" data-tag="pop">流行</button>
+        <button class="type-btn" data-tag="rock">摇滚</button>
+        <button class="type-btn" data-tag="jazz">爵士</button>
+        <button class="type-btn" data-tag="classical">古典</button>
+        <button class="type-btn" data-tag="talk">谈话</button>
+        <button class="type-btn" data-tag="news">新闻</button>
+    </div>
+    <div class="country-filter" id="countryFilter" style="display:none;">
+        <div id="countryBtnWrap"></div>
+    </div>
+    <div class="lang-filter" id="langFilter" style="display:none;">
+        <div id="langBtnWrap"></div>
     </div>
 
-    <div class="country-filter" id="countryFilter">
-        <div class="country-list" id="countryBtnWrap"></div>
+    <!-- AI 推荐区域 -->
+    <div id="aiRecommendBox" style="display:none; margin: 20px 0;">
+        <div style="font-weight:bold; margin-bottom:8px;">🤖 猜你喜欢 · 基于你的听歌历史</div>
+        <div id="aiRecommendList" style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px;"></div>
     </div>
 
-    <div class="lang-filter" id="langFilter">
-        <div class="lang-list" id="langBtnWrap"></div>
-    </div>
-
-    <div class="player">
-        <h3 id="playTitle">Select a station to play</h3>
+    <!-- 播放器 + 均衡器 + 弹幕 -->
+    <div class="player" id="playerCard">
+        <h3 id="playTitle">✨ 选择一个电台开始播放</h3>
         <audio id="audioPlayer" controls preload="none" crossorigin="anonymous"></audio>
-        <!-- 全宽 CSS 频谱（30根彩色柱子） -->
+        
+        <!-- 均衡器控制栏 -->
+        <div class="eq-panel">
+            <button class="eq-btn active" data-eq="normal">🎵 正常</button>
+            <button class="eq-btn" data-eq="bass">🔊 低音增强</button>
+            <button class="eq-btn" data-eq="vocal">🎙️ 人声清晰</button>
+            <button id="danmakuToggleBtn" class="danmaku-toggle">💬 弹幕开</button>
+        </div>
+
+        <!-- 弹幕层 (滚动区域) -->
+        <div id="danmakuLayer" style="position: relative; height: 50px; overflow: hidden; margin-top: 12px; background: rgba(0,0,0,0.1); border-radius: 30px;"></div>
+        
+        <!-- 弹幕输入区 -->
+        <div class="danmaku-input-area" style="display:flex; gap:8px; margin-top:12px;">
+            <input type="text" id="danmakuInput" placeholder="发送弹幕..." maxlength="50">
+            <button id="sendDanmakuBtn">发射弹幕 ✈️</button>
+            <button id="shareStationBtn" class="share-btn">📢 分享当前电台</button>
+        </div>
+
+        <!-- CSS 频谱 (视觉特效) -->
         <div class="spectrum-container" id="spectrumContainer" style="display: none;">
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
+            <!-- 30个柱子由 js 动态生成 -->
         </div>
     </div>
 
-    <div id="loadingTip" style="text-align:center;padding:15px;font-size:16px;display:none;">Loading stations...</div>
+    <!-- 电台列表容器 -->
+    <div id="loadingTip" style="text-align:center;padding:15px;display:none;">⏳ 加载中...</div>
     <div id="emptyTip" style="text-align:center;padding:20px;display:none;"></div>
-
-    <div class="ad-block ad-middle ad-wrapper">
-        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="2222222222" data-ad-format="auto" data-full-width-responsive="true"></ins>
-        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    </div>
-
     <div class="list-container" id="stationList"></div>
 
-    <div class="page-box" id="pageBox">
-        <button id="prevPage">← Prev</button>
-        <span id="pageNum">Page 1</span>
-        <button id="nextPage">Next →</button>
+    <!-- 分页控件 -->
+    <div class="page-box" id="pageBox" style="display:none;">
+        <button id="prevPage">← 上一页</button>
+        <span id="pageNum">第 1 页</span>
+        <button id="nextPage">下一页 →</button>
     </div>
 
+    <!-- 底部广告 -->
     <div class="ad-block ad-bottom ad-wrapper">
-        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="3333333333" data-ad-format="auto" data-full-width-responsive="true"></ins>
+        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="3333333333" data-ad-format="auto"></ins>
         <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 
-    <div id="memberModal" class="modal" role="dialog" aria-modal="true">
+    <!-- 会员弹窗 -->
+    <div id="memberModal" class="modal">
         <div class="modal-content">
-            <span class="closeModal" tabindex="0">&times;</span>
-            <h2>Ad-Free Membership</h2>
-            <p>$1.99 / Lifetime remove all ads</p>
+            <span class="closeModal">&times;</span>
+            <h2>🚀 去广告会员</h2>
+            <p>$1.99 永久移除所有广告</p>
             <div id="paypal-button-container"></div>
-            <p>After payment, refresh page to activate ad-free mode</p>
+            <p>支付后刷新页面生效</p>
         </div>
     </div>
 
     <footer class="footer">
-        <p>This platform only provides directory & external links. We do not store or rebroadcast audio streams.</p>
-        <p>Contact: wcqyt@163.com | <a href="privacy.html">Privacy & DMCA</a></p>
+        <p>本平台仅提供电台目录，不存储音频流。 | 联系方式: wcqyt@163.com</p>
     </footer>
 
     <script src="app.js"></script>
