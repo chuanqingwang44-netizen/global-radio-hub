@@ -41,7 +41,6 @@ const STORAGE_HIST_KEY = "radio_history";
 const STORAGE_THEME_KEY = "radio_theme";
 const STORAGE_MEMBER_KEY = "radio_member";
 const STORAGE_COUNTRY_CACHE = "radio_country_cache";
-const STORAGE_LANG_CACHE = "radio_lang_cache";
 const blockWords = ["bbc", "voa", "rfa", "radio free asia", "cnn news", "nhk world news"];
 
 function isSafeStation(item) {
@@ -82,12 +81,11 @@ const dom = {
   mainNavBtns: document.querySelectorAll(".main-nav-btn"), typeFilter: document.getElementById("typeFilter"),
   typeBtns: document.querySelectorAll(".type-btn"), countryFilter: document.getElementById("countryFilter"),
   countryBtnWrap: document.getElementById("countryBtnWrap"), countrySearchInput: document.getElementById("countrySearch"),
-  langFilter: document.getElementById("langFilter"), langBtnWrap: document.getElementById("langBtnWrap"),
-  langSearchInput: document.getElementById("langSearch"), pageBox: document.getElementById("pageBox"),
-  prevPage: document.getElementById("prevPage"), nextPage: document.getElementById("nextPage"),
-  pageNumText: document.getElementById("pageNum"), adWrappers: document.querySelectorAll(".ad-wrapper")
+  pageBox: document.getElementById("pageBox"), prevPage: document.getElementById("prevPage"),
+  nextPage: document.getElementById("nextPage"), pageNumText: document.getElementById("pageNum"),
+  adWrappers: document.querySelectorAll(".ad-wrapper")
 };
-let state = { currentPage: 1, nowView: "hot", fullCountryList: [], fullLangList: [], paypalRetries: 0 };
+let state = { currentPage: 1, nowView: "hot", fullCountryList: [], paypalRetries: 0 };
 
 function isMember() { try { return localStorage.getItem(STORAGE_MEMBER_KEY) === "paid"; } catch { return false; } }
 function setMemberPaid() { try { localStorage.setItem(STORAGE_MEMBER_KEY, "paid"); } catch {} document.documentElement.classList.add("no-ad"); }
@@ -95,7 +93,7 @@ function initAdState() { if (isMember()) document.documentElement.classList.add(
 function showLoading() { dom.loadingTip.style.display = "block"; dom.emptyTip.style.display = "none"; }
 function hideLoading() { dom.loadingTip.style.display = "none"; }
 function showEmptyTip(text) { dom.emptyTip.textContent = text; dom.emptyTip.style.display = "block"; dom.stationList.innerHTML = ""; }
-function hideAllFilter() { dom.pageBox.style.display = "none"; dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; }
+function hideAllFilter() { dom.pageBox.style.display = "none"; dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; }
 
 function getFavorites() { try { const raw = localStorage.getItem(STORAGE_FAV_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } }
 function saveFavorites(list) { try { localStorage.setItem(STORAGE_FAV_KEY, JSON.stringify(list)); } catch {} }
@@ -168,168 +166,39 @@ function renderCountryButtons(list) {
   list.forEach(ct => { const btn = document.createElement("button"); btn.className = "country-btn"; btn.textContent = `${escapeHtml(ct.name)} (${ct.stationcount})`; btn.dataset.country = ct.name; btn.onclick = () => loadByCountry(ct.name); dom.countryBtnWrap.appendChild(btn); });
 }
 
-// ========== 语言：内置后备 + API 加载 ==========
-const FALLBACK_LANGUAGES = [
-  { name: "English", display: "🇬🇧 English (英语)", stationcount: 0 },
-  { name: "Chinese", display: "🇨🇳 Chinese (汉语)", stationcount: 0 },
-  { name: "Spanish", display: "🇪🇸 Spanish (西班牙语)", stationcount: 0 },
-  { name: "French", display: "🇫🇷 French (法语)", stationcount: 0 },
-  { name: "German", display: "🇩🇪 German (德语)", stationcount: 0 },
-  { name: "Japanese", display: "🇯🇵 Japanese (日语)", stationcount: 0 },
-  { name: "Korean", display: "🇰🇷 Korean (韩语)", stationcount: 0 },
-  { name: "Arabic", display: "🇸🇦 Arabic (阿拉伯语)", stationcount: 0 },
-  { name: "Russian", display: "🇷🇺 Russian (俄语)", stationcount: 0 },
-  { name: "Portuguese", display: "🇵🇹 Portuguese (葡萄牙语)", stationcount: 0 },
-  { name: "Italian", display: "🇮🇹 Italian (意大利语)", stationcount: 0 }
-];
-
-function renderLangButtons(list) {
-  dom.langBtnWrap.innerHTML = "";
-  if (!list || list.length === 0) {
-    list = FALLBACK_LANGUAGES;
-    const tip = document.createElement("div");
-    tip.textContent = "⚠️ 语言列表加载失败，使用内置语言（仍可正常使用）";
-    tip.style.color = "#ff9800";
-    tip.style.margin = "10px 0";
-    dom.langBtnWrap.appendChild(tip);
-  }
-  const majorNames = ["english","chinese","spanish","french","german","japanese","korean","arabic","russian","portuguese","italian"];
-  const major = [];
-  const other = [];
-  for (const lang of list) {
-    const nameLower = lang.name.toLowerCase();
-    if (majorNames.includes(nameLower)) {
-      let display = lang.display || lang.name;
-      if (nameLower === "english") display = "🇬🇧 English (英语)";
-      else if (nameLower === "chinese") display = "🇨🇳 Chinese (汉语)";
-      else if (nameLower === "spanish") display = "🇪🇸 Spanish (西班牙语)";
-      else if (nameLower === "french") display = "🇫🇷 French (法语)";
-      else if (nameLower === "german") display = "🇩🇪 German (德语)";
-      else if (nameLower === "japanese") display = "🇯🇵 Japanese (日语)";
-      else if (nameLower === "korean") display = "🇰🇷 Korean (韩语)";
-      else if (nameLower === "arabic") display = "🇸🇦 Arabic (阿拉伯语)";
-      else if (nameLower === "russian") display = "🇷🇺 Russian (俄语)";
-      else if (nameLower === "portuguese") display = "🇵🇹 Portuguese (葡萄牙语)";
-      else if (nameLower === "italian") display = "🇮🇹 Italian (意大利语)";
-      major.push({ ...lang, displayName: display });
-    } else {
-      other.push(lang);
-    }
-  }
-  if (major.length) {
-    const majorTitle = document.createElement("div");
-    majorTitle.className = "lang-group-title";
-    majorTitle.textContent = "🌍 主要语言";
-    majorTitle.style.fontWeight = "bold";
-    majorTitle.style.margin = "10px 0 5px 0";
-    dom.langBtnWrap.appendChild(majorTitle);
-    major.forEach(lang => {
-      const btn = document.createElement("button");
-      btn.className = "lang-btn";
-      btn.textContent = lang.displayName || `${escapeHtml(lang.name)} (${lang.stationcount})`;
-      btn.dataset.lang = lang.name;
-      btn.onclick = () => loadByLang(lang.name);
-      dom.langBtnWrap.appendChild(btn);
-    });
-  }
-  if (other.length) {
-    const otherTitle = document.createElement("div");
-    otherTitle.className = "lang-group-title";
-    otherTitle.textContent = "🔽 其他语言 (点击展开)";
-    otherTitle.style.fontWeight = "bold";
-    otherTitle.style.margin = "15px 0 5px 0";
-    otherTitle.style.cursor = "pointer";
-    otherTitle.style.color = "#2196F3";
-    dom.langBtnWrap.appendChild(otherTitle);
-    const otherContainer = document.createElement("div");
-    otherContainer.className = "lang-other-container";
-    otherContainer.style.display = "none";
-    other.forEach(lang => {
-      const btn = document.createElement("button");
-      btn.className = "lang-btn";
-      btn.textContent = `${escapeHtml(lang.name)} (${lang.stationcount})`;
-      btn.dataset.lang = lang.name;
-      btn.onclick = () => loadByLang(lang.name);
-      otherContainer.appendChild(btn);
-    });
-    dom.langBtnWrap.appendChild(otherContainer);
-    otherTitle.onclick = () => {
-      const isHidden = otherContainer.style.display === "none";
-      otherContainer.style.display = isHidden ? "flex" : "none";
-      otherTitle.textContent = isHidden ? "🔼 其他语言 (点击收起)" : "🔽 其他语言 (点击展开)";
-    };
-  }
-}
-
-async function loadCachedLanguages() {
-  try {
-    const cacheStr = localStorage.getItem(STORAGE_LANG_CACHE);
-    if (cacheStr) {
-      const cache = JSON.parse(cacheStr);
-      if (Date.now() - cache.time < CACHE_EXPIRE) {
-        state.fullLangList = cache.data;
-        renderLangButtons(state.fullLangList);
-        return;
-      }
-    }
-  } catch {}
-  const data = await safeFetch("/languages", fetchOption);
-  if (data && data.length > 0) {
-    state.fullLangList = data;
-    try { localStorage.setItem(STORAGE_LANG_CACHE, JSON.stringify({ time: Date.now(), data })); } catch {}
-    renderLangButtons(data);
-  } else {
-    renderLangButtons([]);
-  }
-}
-
-// ========== 增强的语言电台加载 ==========
-async function loadByLang(langName) {
-  showLoading();
-  hideAllFilter();
-  dom.langFilter.style.display = "flex";
-  
-  // 尝试多种语言名称变体（API 对大小写和格式敏感）
-  const langVariants = [langName, langName.toLowerCase(), langName.charAt(0).toUpperCase() + langName.slice(1).toLowerCase()];
-  // 特殊处理中文
-  if (langName.toLowerCase() === "chinese") {
-    langVariants.push("zh", "chi", "zho");
-  }
-  
-  let stations = [];
-  for (const variant of langVariants) {
-    const url = `/stations/search?language=${encodeURIComponent(variant)}&limit=120`;
-    const data = await safeFetch(url, fetchOption);
-    if (data && data.length > 0) {
-      stations = data;
-      break;
-    }
-  }
-  
-  if (stations.length === 0) {
-    // 如果还是没有结果，尝试用国家代码等其他方式（这里可以加一个提示）
-    showEmptyTip(`未找到 ${langName} 语言的电台，可能是 API 暂时无数据，请稍后重试或尝试其他语言`);
-    hideLoading();
-    return;
-  }
-  
-  renderStationList(stations);
-  hideLoading();
-}
-
-// 其他加载函数不变
+// 加载数据接口
 async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
-async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
+async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 async function loadByCountry(name) { showLoading(); hideAllFilter(); dom.countryFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?country=${encodeURIComponent(name)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 
 const handleSearch = debounce(async () => { const q = dom.searchInput.value.trim(); if (!q) return; showLoading(); hideAllFilter(); const data = await safeFetch(`/stations/search?q=${encodeURIComponent(q)}`, fetchOption); renderStationList(data); hideLoading(); });
 const filterCountry = debounce(() => { const kw = dom.countrySearchInput.value.trim().toLowerCase(); const filtered = state.fullCountryList.filter(ct => ct.name.toLowerCase().includes(kw)); renderCountryButtons(filtered); });
-const filterLang = debounce(() => { const kw = dom.langSearchInput.value.trim().toLowerCase(); const filtered = state.fullLangList.filter(lg => lg.name.toLowerCase().includes(kw)); renderLangButtons(filtered); });
 
-function bindNavEvents() { dom.mainNavBtns.forEach(btn => { btn.onclick = async () => { dom.mainNavBtns.forEach(b => b.classList.remove("active")); btn.classList.add("active"); state.nowView = btn.dataset.view; state.currentPage = 1; switch (state.nowView) { case "hot": await loadHot(); break; case "all": await loadAllStations(); break; case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break; case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("搜索或点击国家加载电台"); if (!state.fullCountryList.length) await loadCachedCountries(); break; case "lang": hideAllFilter(); dom.langFilter.style.display = "flex"; showEmptyTip("点击下方语言加载电台"); if (!state.fullLangList.length) await loadCachedLanguages(); break; } }; }); }
+function bindNavEvents() { 
+  dom.mainNavBtns.forEach(btn => { 
+    btn.onclick = async () => { 
+      dom.mainNavBtns.forEach(b => b.classList.remove("active")); 
+      btn.classList.add("active"); 
+      state.nowView = btn.dataset.view; 
+      state.currentPage = 1; 
+      switch (state.nowView) { 
+        case "hot": await loadHot(); break; 
+        case "all": await loadAllStations(); break; 
+        case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break; 
+        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("搜索或点击国家加载电台"); if (!state.fullCountryList.length) await loadCachedCountries(); break; 
+      } 
+    }; 
+  }); 
+}
 function bindPageEvents() { dom.prevPage.onclick = async () => { if (state.nowView !== "all" || state.currentPage <= 1) return; state.currentPage--; await loadAllStations(); }; dom.nextPage.onclick = async () => { if (state.nowView !== "all") return; state.currentPage++; await loadAllStations(); }; }
 function bindVisibilityPause() { document.addEventListener("visibilitychange", () => { if (document.hidden && !dom.audioPlayer.paused) dom.audioPlayer.pause(); }); window.addEventListener('beforeunload', () => { dom.audioPlayer.pause(); dom.audioPlayer.src = ""; }); }
-function bindAllEvents() { dom.favBtnTop.onclick = loadFavList; dom.historyBtnTop.onclick = loadHistoryList; dom.themeBtn.onclick = toggleTheme; dom.searchBtn.onclick = handleSearch; dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch()); dom.countrySearchInput.addEventListener("input", filterCountry); dom.langSearchInput.addEventListener("input", filterLang); dom.typeBtns.forEach(btn => btn.onclick = () => loadByTag(btn.dataset.tag)); bindNavEvents(); bindPageEvents(); bindModalEvent(); bindVisibilityPause(); }
+function bindAllEvents() { 
+  dom.favBtnTop.onclick = loadFavList; dom.historyBtnTop.onclick = loadHistoryList; dom.themeBtn.onclick = toggleTheme; 
+  dom.searchBtn.onclick = handleSearch; dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch()); 
+  dom.countrySearchInput.addEventListener("input", filterCountry); 
+  dom.typeBtns.forEach(btn => btn.onclick = () => loadByTag(btn.dataset.tag)); 
+  bindNavEvents(); bindPageEvents(); bindModalEvent(); bindVisibilityPause(); 
+}
 async function initApp() { initTheme(); initAdState(); bindAllEvents(); await loadHot(); setTimeout(initPayPal, 1200); }
 window.addEventListener("DOMContentLoaded", initApp);
