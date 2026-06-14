@@ -165,10 +165,9 @@ async function loadCachedCountries() {
   const data = FALLBACK_COUNTRIES.map(name => ({ name, stationcount: 0 }));
   state.fullCountryList = data;
   renderCountryButtons(data);
-  // 可选：显示一条提示（也可以不显示，让用户无感）
-  // showEmptyTip("使用内置国家列表（点击按钮即可加载电台）");
 }
 
+// 国家按钮渲染：只显示国家名称，不显示数字
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
   if (!list || list.length === 0) {
@@ -178,7 +177,7 @@ function renderCountryButtons(list) {
   list.forEach(ct => {
     const btn = document.createElement("button");
     btn.className = "country-btn";
-    btn.textContent = `${escapeHtml(ct.name)} (${ct.stationcount || 0})`;
+    btn.textContent = `${escapeHtml(ct.name)}`;   // 只显示国家名，不带括号和数字
     btn.dataset.country = ct.name;
     btn.onclick = () => loadByCountry(ct.name);
     dom.countryBtnWrap.appendChild(btn);
