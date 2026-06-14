@@ -154,9 +154,9 @@ async function playStation(station) {
 }
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// ========== 国家列表（增强：如果API失败，使用内置主要国家） ==========
+// ========== 国家列表（带内置后备） ==========
 const FALLBACK_COUNTRIES = [
-  "United States", "United Kingdom", "Canada", "Australia", "Germany", "France", "Italy", "Spain", 
+  "United States", "United Kingdom", "Canada", "Australia", "Germany", "France", "Italy", "Spain",
   "Japan", "China", "India", "Brazil", "Mexico", "Netherlands", "Sweden", "Norway", "Poland", "Russia"
 ];
 async function loadCachedCountries() {
@@ -173,7 +173,6 @@ async function loadCachedCountries() {
   } catch {}
   let data = await safeFetch("/countries", fetchOption);
   if (!data || data.length === 0) {
-    // API失败，使用内置国家列表构造虚拟数据
     data = FALLBACK_COUNTRIES.map(name => ({ name, stationcount: 0 }));
     showEmptyTip("国家列表加载失败，使用内置列表（仍可正常使用）");
   }
@@ -183,13 +182,13 @@ async function loadCachedCountries() {
 }
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
-  list.forEach(ct => { 
-    const btn = document.createElement("button"); 
-    btn.className = "country-btn"; 
-    btn.textContent = `${escapeHtml(ct.name)} (${ct.stationcount || 0})`; 
-    btn.dataset.country = ct.name; 
-    btn.onclick = () => loadByCountry(ct.name); 
-    dom.countryBtnWrap.appendChild(btn); 
+  list.forEach(ct => {
+    const btn = document.createElement("button");
+    btn.className = "country-btn";
+    btn.textContent = `${escapeHtml(ct.name)} (${ct.stationcount || 0})`;
+    btn.dataset.country = ct.name;
+    btn.onclick = () => loadByCountry(ct.name);
+    dom.countryBtnWrap.appendChild(btn);
   });
 }
 
@@ -198,10 +197,9 @@ async function loadByCountry(countryName) {
   showLoading();
   hideAllFilter();
   dom.countryFilter.style.display = "flex";
-  
-  // 尝试多种名称变体
-  const variants = [countryName, countryName.toLowerCase(), countryName.charAt(0).toUpperCase() + countryName.slice(1).toLowerCase()];
+
   let stations = [];
+  const variants = [countryName, countryName.toLowerCase(), countryName.charAt(0).toUpperCase() + countryName.slice(1).toLowerCase()];
   for (const v of variants) {
     const url = `/stations/search?country=${encodeURIComponent(v)}&limit=120`;
     const data = await safeFetch(url, fetchOption);
@@ -210,7 +208,6 @@ async function loadByCountry(countryName) {
       break;
     }
   }
-  // 兜底：从热门电台中筛选国家字段匹配
   if (stations.length === 0) {
     const topData = await safeFetch("/stations/topclick/500", fetchOption);
     if (topData && topData.length) {
@@ -230,7 +227,7 @@ async function loadByCountry(countryName) {
   hideLoading();
 }
 
-// ========== 主要语言列表（内置） ==========
+// ========== 主要语言列表 ==========
 const MAJOR_LANGUAGES = [
   { name: "English", code: "en", keywords: ["english", "en"] },
   { name: "Chinese", code: "zh", keywords: ["chinese", "zh", "chi", "zho"] },
@@ -268,7 +265,7 @@ async function loadByLanguage(lang) {
   showLoading();
   hideAllFilter();
   dom.langFilter.style.display = "flex";
-  
+
   let stations = [];
   const queries = [];
   queries.push(`language=${encodeURIComponent(lang.name)}`);
@@ -318,7 +315,7 @@ async function loadHot() { showLoading(); hideAllFilter(); const data = await sa
 async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 
-// ========== 搜索修复 ==========
+// ========== 搜索 ==========
 const handleSearch = debounce(async () => {
   const q = dom.searchInput.value.trim();
   if (!q) {
@@ -328,7 +325,7 @@ const handleSearch = debounce(async () => {
   showLoading();
   hideAllFilter();
   dom.pageBox.style.display = "none";
-  
+
   let stations = [];
   for (const mirror of API_MIRRORS) {
     const url = `${mirror}/stations/search?q=${encodeURIComponent(q)}&limit=100`;
@@ -354,11 +351,7 @@ const handleSearch = debounce(async () => {
   hideLoading();
 });
 
-const filterCountry = debounce(() => {
-  const kw = dom.countrySearchInput.value.trim().toLowerCase();
-  const filtered = state.fullCountryList.filter(ct => ct.name.toLowerCase().includes(kw));
-  renderCountryButtons(filtered);
-});
+// 注意：国家输入框已移除，不需要 filterCountry 函数和事件绑定
 
 // 导航切换
 function bindNavEvents() {
@@ -372,7 +365,7 @@ function bindNavEvents() {
         case "hot": await loadHot(); break;
         case "all": await loadAllStations(); break;
         case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break;
-        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("搜索或点击国家加载电台"); if (!state.fullCountryList.length) await loadCachedCountries(); break;
+        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("点击下方国家加载电台"); if (!state.fullCountryList.length) await loadCachedCountries(); break;
         case "lang": hideAllFilter(); dom.langFilter.style.display = "flex"; renderLanguageButtons(); showEmptyTip("点击下方语言加载电台"); break;
       }
     };
@@ -383,7 +376,7 @@ function bindVisibilityPause() { document.addEventListener("visibilitychange", (
 function bindAllEvents() {
   dom.favBtnTop.onclick = loadFavList; dom.historyBtnTop.onclick = loadHistoryList; dom.themeBtn.onclick = toggleTheme;
   dom.searchBtn.onclick = handleSearch; dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch());
-  dom.countrySearchInput.addEventListener("input", filterCountry);
+  // 国家输入框已不存在，无需绑定 filterCountry
   dom.typeBtns.forEach(btn => btn.onclick = () => loadByTag(btn.dataset.tag));
   bindNavEvents(); bindPageEvents(); bindModalEvent(); bindVisibilityPause();
 }
