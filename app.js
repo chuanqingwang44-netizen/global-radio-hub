@@ -283,12 +283,46 @@ async function loadCachedLanguages() {
   }
 }
 
-// 数据加载接口
+// ========== 增强的语言电台加载 ==========
+async function loadByLang(langName) {
+  showLoading();
+  hideAllFilter();
+  dom.langFilter.style.display = "flex";
+  
+  // 尝试多种语言名称变体（API 对大小写和格式敏感）
+  const langVariants = [langName, langName.toLowerCase(), langName.charAt(0).toUpperCase() + langName.slice(1).toLowerCase()];
+  // 特殊处理中文
+  if (langName.toLowerCase() === "chinese") {
+    langVariants.push("zh", "chi", "zho");
+  }
+  
+  let stations = [];
+  for (const variant of langVariants) {
+    const url = `/stations/search?language=${encodeURIComponent(variant)}&limit=120`;
+    const data = await safeFetch(url, fetchOption);
+    if (data && data.length > 0) {
+      stations = data;
+      break;
+    }
+  }
+  
+  if (stations.length === 0) {
+    // 如果还是没有结果，尝试用国家代码等其他方式（这里可以加一个提示）
+    showEmptyTip(`未找到 ${langName} 语言的电台，可能是 API 暂时无数据，请稍后重试或尝试其他语言`);
+    hideLoading();
+    return;
+  }
+  
+  renderStationList(stations);
+  hideLoading();
+}
+
+// 其他加载函数不变
 async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
 async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 async function loadByCountry(name) { showLoading(); hideAllFilter(); dom.countryFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?country=${encodeURIComponent(name)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
-async function loadByLang(name) { showLoading(); hideAllFilter(); dom.langFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?language=${encodeURIComponent(name)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
+
 const handleSearch = debounce(async () => { const q = dom.searchInput.value.trim(); if (!q) return; showLoading(); hideAllFilter(); const data = await safeFetch(`/stations/search?q=${encodeURIComponent(q)}`, fetchOption); renderStationList(data); hideLoading(); });
 const filterCountry = debounce(() => { const kw = dom.countrySearchInput.value.trim().toLowerCase(); const filtered = state.fullCountryList.filter(ct => ct.name.toLowerCase().includes(kw)); renderCountryButtons(filtered); });
 const filterLang = debounce(() => { const kw = dom.langSearchInput.value.trim().toLowerCase(); const filtered = state.fullLangList.filter(lg => lg.name.toLowerCase().includes(kw)); renderLangButtons(filtered); });
