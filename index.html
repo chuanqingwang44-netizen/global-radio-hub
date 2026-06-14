@@ -75,8 +75,10 @@
     <div class="player">
         <h3 id="playTitle">Select a station to play</h3>
         <audio id="audioPlayer" controls preload="none" crossorigin="anonymous"></audio>
-        <!-- 全宽 CSS 频谱（30根彩色柱子） -->
-        <div class="spectrum-container" id="spectrumContainer" style="display: none;">
+        <!-- 真实频谱 canvas（默认隐藏） -->
+        <canvas id="realSpectrum" class="real-spectrum" width="800" height="80" style="display: none;"></canvas>
+        <!-- CSS 模拟频谱（回退方案，默认隐藏） -->
+        <div class="spectrum-container" id="cssSpectrum" style="display: none;">
             <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
             <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
             <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
