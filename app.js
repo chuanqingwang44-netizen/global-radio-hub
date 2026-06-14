@@ -88,6 +88,116 @@ const dom = {
 };
 let state = { currentPage: 1, nowView: "hot", fullCountryList: [], paypalRetries: 0 };
 
+// ========== 智能频谱管理 ==========
+let audioContext = null;
+let sourceNode = null;
+let analyser = null;
+let animationId = null;
+let useRealSpectrum = false;   // 是否使用真实频谱
+const realCanvas = document.getElementById('realSpectrum');
+const cssSpectrum = document.getElementById('cssSpectrum');
+
+function stopRealSpectrum() {
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+  if (sourceNode) {
+    try { sourceNode.disconnect(); } catch(e) {}
+    sourceNode = null;
+  }
+  if (analyser) {
+    try { analyser.disconnect(); } catch(e) {}
+    analyser = null;
+  }
+  if (audioContext) {
+    try { audioContext.close(); } catch(e) {}
+    audioContext = null;
+  }
+  if (realCanvas) realCanvas.style.display = 'none';
+  if (cssSpectrum) cssSpectrum.style.display = 'none';
+}
+
+function startCSSSpectrum() {
+  if (cssSpectrum) cssSpectrum.style.display = 'flex';
+  useRealSpectrum = false;
+}
+
+function startRealSpectrum(audioElement) {
+  if (!audioElement || !realCanvas) return false;
+  try {
+    if (audioContext) stopRealSpectrum();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ctx.createMediaElementSource(audioElement);
+    const analyserNode = ctx.createAnalyser();
+    analyserNode.fftSize = 256;
+    const bufferLength = analyserNode.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    src.connect(analyserNode);
+    analyserNode.connect(ctx.destination);
+    
+    const canvas = realCanvas;
+    const canvasCtx = canvas.getContext('2d');
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    
+    function draw() {
+      if (!analyserNode || !canvasCtx) return;
+      animationId = requestAnimationFrame(draw);
+      analyserNode.getByteFrequencyData(dataArray);
+      const width = canvas.width, height = canvas.height;
+      const barWidth = (width / bufferLength) * 2;
+      let x = 0;
+      canvasCtx.clearRect(0, 0, width, height);
+      const isDark = document.documentElement.classList.contains('dark');
+      for (let i = 0; i < bufferLength; i++) {
+        const value = dataArray[i];
+        const percent = value / 255;
+        const barHeight = Math.max(4, percent * height);
+        const hue = 210 + (percent * 60);
+        const sat = isDark ? '80%' : '70%';
+        const lightness = isDark ? '60%' : '50%';
+        canvasCtx.fillStyle = `hsl(${hue}, ${sat}, ${lightness})`;
+        canvasCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
+        x += barWidth;
+      }
+    }
+    draw();
+    
+    audioContext = ctx;
+    sourceNode = src;
+    analyser = analyserNode;
+    
+    canvas.style.display = 'block';
+    if (cssSpectrum) cssSpectrum.style.display = 'none';
+    
+    // 恢复 AudioContext 状态
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    return true;
+  } catch (err) {
+    console.warn('真实频谱初始化失败，回退 CSS 模拟:', err);
+    return false;
+  }
+}
+
+function stopSpectrum() {
+  stopRealSpectrum();
+  if (cssSpectrum) cssSpectrum.style.display = 'none';
+}
+
+function initSpectrum(audioElement) {
+  stopSpectrum();
+  if (!audioElement) return;
+  // 尝试真实频谱
+  const success = startRealSpectrum(audioElement);
+  if (!success) {
+    startCSSSpectrum();
+  }
+}
+
 function isMember() { try { return localStorage.getItem(STORAGE_MEMBER_KEY) === "paid"; } catch { return false; } }
 function setMemberPaid() { try { localStorage.setItem(STORAGE_MEMBER_KEY, "paid"); } catch {} document.documentElement.classList.add("no-ad"); }
 function initAdState() { if (isMember()) document.documentElement.classList.add("no-ad"); }
@@ -149,10 +259,8 @@ function renderStationList(rawList) {
   };
 }
 
-// 播放函数（控制频谱容器的显示/隐藏）
 async function playStation(station) {
-  const spectrumContainer = document.getElementById('spectrumContainer');
-  if (spectrumContainer) spectrumContainer.style.display = 'none';
+  stopSpectrum();
   dom.audioPlayer.pause();
   dom.audioPlayer.src = "";
   dom.audioPlayer.load();
@@ -161,14 +269,13 @@ async function playStation(station) {
     dom.audioPlayer.src = station.url;
     await dom.audioPlayer.play();
     addHistory(station);
-    if (spectrumContainer) spectrumContainer.style.display = 'flex';
+    initSpectrum(dom.audioPlayer);
   } catch (err) {
     dom.playTitle.innerText = "该电台无法播放，试试其他的吧";
     console.error("播放失败:", err);
-    if (spectrumContainer) spectrumContainer.style.display = 'none';
+    stopSpectrum();
   }
 }
-
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
 // ========== 国家列表（下拉框版本） ==========
@@ -342,7 +449,6 @@ async function loadHot() { showLoading(); hideAllFilter(); const data = await sa
 async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 
-// ========== 增强搜索 ==========
 const handleSearch = debounce(async () => {
   const q = dom.searchInput.value.trim();
   if (!q) { showEmptyTip("请输入搜索关键词"); return; }
@@ -392,11 +498,13 @@ function bindVisibilityPause() {
   document.addEventListener("visibilitychange", () => { 
     if (document.hidden && !dom.audioPlayer.paused) {
       dom.audioPlayer.pause();
+      stopSpectrum();
     }
   }); 
   window.addEventListener('beforeunload', () => { 
     dom.audioPlayer.pause(); 
     dom.audioPlayer.src = ""; 
+    stopSpectrum();
   }); 
 }
 function bindAllEvents() {
