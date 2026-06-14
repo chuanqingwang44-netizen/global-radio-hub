@@ -1,195 +1,364 @@
-// ========== 可用的 Radio Browser 镜像服务器列表 ==========
-const API_MIRRORS = [
-  "https://de1.api.radio-browser.info/json",
-  "https://nl1.api.radio-browser.info/json",
-  "https://fr1.api.radio-browser.info/json",
-  "https://us1.api.radio-browser.info/json"
-];
-let currentMirrorIndex = 0;
+// ========== 全局配置常量区（统一管理） ==========
+const CONFIG = {
+  API_MIRRORS: [
+    "https://de1.api.radio-browser.info/json",
+    "https://nl1.api.radio-browser.info/json",
+    "https://fr1.api.radio-browser.info/json",
+    "https://us1.api.radio-browser.info/json"
+  ],
+  UA_LIST: [
+    "GlobalRadioHub/1.0 (Contact: wcqyt@163.com)",
+    "RadioHubWeb/1.0 (Contact: wcqyt@163.com)",
+    "GlobalFMHub/1.0 (Contact: wcqyt@163.com)"
+  ],
+  BLOCK_WORDS: ["bbc", "voa", "rfa", "radio free asia", "cnn news", "nhk world news"],
+  PAGE_SIZE: 60,
+  HIST_MAX: 50,
+  CACHE_EXPIRE: 86400000, // 24小时缓存毫秒
+  FETCH_TIMEOUT: 8000,
+  LOCK_COOLDOWN: 1000,
+  PAYPAL_MAX_RETRY: 8,
+  STORAGE_KEYS: {
+    FAV: "radio_favorites",
+    HIST: "radio_history",
+    THEME: "radio_theme",
+    MEMBER: "radio_member",
+    COUNTRY_CACHE: "radio_country_cache"
+  }
+};
 
-async function fetchWithFallback(url, options) {
-  for (let i = 0; i < API_MIRRORS.length; i++) {
-    const mirror = API_MIRRORS[(currentMirrorIndex + i) % API_MIRRORS.length];
-    const fullUrl = mirror + url;
+// 运行时变量
+let currentMirrorIndex = 0;
+let fetchLock = false;
+const state = {
+  currentPage: 1,
+  nowView: "hot",
+  fullCountryList: [],
+  paypalRetries: 0
+};
+
+// ==================== 工具函数 ====================
+/** 随机UA */
+function getRandomUA() {
+  return CONFIG.UA_LIST[Math.floor(Math.random() * CONFIG.UA_LIST.length)];
+}
+const fetchBaseOpts = {
+  headers: { "User-Agent": getRandomUA() }
+};
+
+/** 多镜像轮询请求 */
+async function fetchWithFallback(urlPath, options = {}) {
+  const opts = { ...fetchBaseOpts, ...options };
+  const mirrors = CONFIG.API_MIRRORS;
+
+  for (let i = 0; i < mirrors.length; i++) {
+    const idx = (currentMirrorIndex + i) % mirrors.length;
+    const mirror = mirrors[idx];
+    const fullUrl = mirror + urlPath;
     try {
-      const res = await fetch(fullUrl, options);
+      const res = await fetch(fullUrl, opts);
       if (res.ok) {
-        currentMirrorIndex = (currentMirrorIndex + i) % API_MIRRORS.length;
+        currentMirrorIndex = idx; // 记录可用镜像优先下次使用
         return res;
       }
-    } catch (e) {
-      console.warn(`镜像 ${mirror} 失败，尝试下一个...`);
+      console.warn(`镜像 ${mirror} 返回非200状态: ${res.status}`);
+    } catch (err) {
+      console.warn(`镜像 ${mirror} 连接失败:`, err.message);
     }
   }
-  throw new Error("所有 API 镜像均不可用");
+  throw new Error("所有Radio Browser镜像服务器均连接失败");
 }
 
-const UA_LIST = [
-  "GlobalRadioHub/1.0 (Contact: wcqyt@163.com)",
-  "RadioHubWeb/1.0 (Contact: wcqyt@163.com)",
-  "GlobalFMHub/1.0 (Contact: wcqyt@163.com)"
-];
-function getRandomUA() { return UA_LIST[Math.floor(Math.random() * UA_LIST.length)]; }
-
-const fetchOption = { headers: { "User-Agent": getRandomUA() } };
-let fetchLock = false;
-const pageSize = 60;
-const HIST_MAX = 50;
-const CACHE_EXPIRE = 86400000;
-const STORAGE_FAV_KEY = "radio_favorites";
-const STORAGE_HIST_KEY = "radio_history";
-const STORAGE_THEME_KEY = "radio_theme";
-const STORAGE_MEMBER_KEY = "radio_member";
-const STORAGE_COUNTRY_CACHE = "radio_country_cache";
-const blockWords = ["bbc", "voa", "rfa", "radio free asia", "cnn news", "nhk world news"];
-
-function isSafeStation(item) {
-  if (!item.url) return false;
-  const lowerUrl = item.url.toLowerCase();
-  return !blockWords.some(w => lowerUrl.includes(w));
-}
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function debounce(fn, delay = 300) {
-  let timer;
-  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), delay); };
-}
-async function safeFetch(urlPath, opt) {
+/** 带锁+超时+兜底数组的安全请求 */
+async function safeFetch(urlPath, options = {}) {
   if (fetchLock) return [];
   fetchLock = true;
   try {
-    const res = await Promise.race([fetchWithFallback(urlPath, opt), new Promise((_, rej) => setTimeout(() => rej("timeout"), 8000))]);
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch (e) {
-    console.error("Fetch fail:", e);
-    showEmptyTip("无法加载电台，请稍后重试");
+    // 超时竞速
+    const fetchPromise = fetchWithFallback(urlPath, options);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("请求超时")), CONFIG.FETCH_TIMEOUT)
+    );
+    const res = await Promise.race([fetchPromise, timeoutPromise]);
+    const raw = await res.json();
+    return Array.isArray(raw) ? raw : [];
+  } catch (err) {
+    console.error("safeFetch异常:", err);
+    showEmptyTip("网络请求失败，无法加载电台数据");
     return [];
-  } finally { setTimeout(() => fetchLock = false, 1000); }
+  } finally {
+    // 冷却解锁，防止短时间并发轰炸接口
+    setTimeout(() => fetchLock = false, CONFIG.LOCK_COOLDOWN);
+  }
 }
 
-const dom = {
-  searchInput: document.getElementById("searchInput"), searchBtn: document.getElementById("searchBtn"),
-  stationList: document.getElementById("stationList"), audioPlayer: document.getElementById("audioPlayer"),
-  playTitle: document.getElementById("playTitle"), favBtnTop: document.getElementById("favBtnTop"),
-  historyBtnTop: document.getElementById("historyBtnTop"), themeBtn: document.getElementById("themeBtn"),
-  memberBtn: document.getElementById("memberBtn"), loadingTip: document.getElementById("loadingTip"),
-  emptyTip: document.getElementById("emptyTip"), modal: document.getElementById("memberModal"),
-  closeModal: document.querySelector(".closeModal"), paypalWrap: document.getElementById("paypal-button-container"),
-  mainNavBtns: document.querySelectorAll(".main-nav-btn"), typeFilter: document.getElementById("typeFilter"),
-  typeBtns: document.querySelectorAll(".type-btn"), countryFilter: document.getElementById("countryFilter"),
-  countryBtnWrap: document.getElementById("countryBtnWrap"), countrySearchInput: document.getElementById("countrySearch"),
-  langFilter: document.getElementById("langFilter"), langBtnWrap: document.getElementById("langBtnWrap"),
-  pageBox: document.getElementById("pageBox"), prevPage: document.getElementById("prevPage"),
-  nextPage: document.getElementById("nextPage"), pageNumText: document.getElementById("pageNum"),
-  adWrappers: document.querySelectorAll(".ad-wrapper")
-};
-let state = { currentPage: 1, nowView: "hot", fullCountryList: [], paypalRetries: 0 };
+/** HTML转义防XSS */
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-function isMember() { try { return localStorage.getItem(STORAGE_MEMBER_KEY) === "paid"; } catch { return false; } }
-function setMemberPaid() { try { localStorage.setItem(STORAGE_MEMBER_KEY, "paid"); } catch {} document.documentElement.classList.add("no-ad"); }
-function initAdState() { if (isMember()) document.documentElement.classList.add("no-ad"); }
-function showLoading() { dom.loadingTip.style.display = "block"; dom.emptyTip.style.display = "none"; }
-function hideLoading() { dom.loadingTip.style.display = "none"; }
-function showEmptyTip(text) { dom.emptyTip.textContent = text; dom.emptyTip.style.display = "block"; dom.stationList.innerHTML = ""; }
-function hideAllFilter() { dom.pageBox.style.display = "none"; dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; }
+/** 防抖封装 */
+function debounce(fn, delay = 300) {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
 
-function getFavorites() { try { const raw = localStorage.getItem(STORAGE_FAV_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } }
-function saveFavorites(list) { try { localStorage.setItem(STORAGE_FAV_KEY, JSON.stringify(list)); } catch {} }
-function isFav(uuid) { return getFavorites().some(s => s.stationuuid === uuid); }
+/** 电台过滤屏蔽名单 */
+function isSafeStation(item) {
+  if (!item?.url) return false;
+  const urlLow = item.url.toLowerCase();
+  return !CONFIG.BLOCK_WORDS.some(word => urlLow.includes(word));
+}
+
+// ==================== LocalStorage安全读写封装 ====================
+function storageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch { return null; }
+}
+function storageSet(key, val) {
+  try {
+    localStorage.setItem(key, val);
+  } catch {}
+}
+function storageGetJSON(key) {
+  const str = storageGet(key);
+  if (!str) return null;
+  try { return JSON.parse(str); } catch { return null; }
+}
+function storageSetJSON(key, obj) {
+  storageSet(key, JSON.stringify(obj));
+}
+
+// ==================== 收藏逻辑 ====================
+function getFavorites() {
+  return storageGetJSON(CONFIG.STORAGE_KEYS.FAV) || [];
+}
+function saveFavorites(list) {
+  storageSetJSON(CONFIG.STORAGE_KEYS.FAV, list);
+}
+function isFav(uuid) {
+  return getFavorites().some(s => s.stationuuid === uuid);
+}
 function toggleFav(stationObj) {
-  let favs = getFavorites();
+  const favs = getFavorites();
   const idx = favs.findIndex(s => s.stationuuid === stationObj.stationuuid);
-  if (idx > -1) favs.splice(idx, 1); else favs.push(stationObj);
+  if (idx > -1) favs.splice(idx, 1);
+  else favs.push(stationObj);
   saveFavorites(favs);
   return idx === -1;
 }
-function loadFavList() { hideAllFilter(); const favs = getFavorites(); if (!favs.length) return showEmptyTip("暂无收藏电台，点击 ☆ 添加"); renderStationList(favs); }
+function loadFavList() {
+  hideAllFilter();
+  const favs = getFavorites();
+  if (!favs.length) return showEmptyTip("暂无收藏电台，点击卡片☆添加收藏");
+  renderStationList(favs);
+}
 
-function getHistory() { try { const raw = localStorage.getItem(STORAGE_HIST_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } }
-function saveHistory(list) { try { localStorage.setItem(STORAGE_HIST_KEY, JSON.stringify(list)); } catch {} }
+// ==================== 播放历史逻辑 ====================
+function getHistory() {
+  return storageGetJSON(CONFIG.STORAGE_KEYS.HIST) || [];
+}
+function saveHistory(list) {
+  storageSetJSON(CONFIG.STORAGE_KEYS.HIST, list);
+}
 function addHistory(stationObj) {
   let hist = getHistory().filter(s => s.stationuuid !== stationObj.stationuuid);
   hist.unshift(stationObj);
-  if (hist.length > HIST_MAX) hist.pop();
+  if (hist.length > CONFIG.HIST_MAX) hist.pop();
   saveHistory(hist);
 }
-function loadHistoryList() { hideAllFilter(); const hist = getHistory(); if (!hist.length) return showEmptyTip("暂无播放历史"); renderStationList(hist); }
-
-function initTheme() { let saved = "light"; try { saved = localStorage.getItem(STORAGE_THEME_KEY) || "light"; } catch {} document.documentElement.className = saved + (isMember() ? " no-ad" : ""); }
-function toggleTheme() { const html = document.documentElement; const adClass = html.classList.contains("no-ad") ? " no-ad" : ""; const newTheme = html.classList.contains("light") ? "dark" : "light"; html.className = newTheme + adClass; try { localStorage.setItem(STORAGE_THEME_KEY, newTheme); } catch {} }
-
-function loadPayPal() { if (document.querySelector('#paypal-sdk')) return; const script = document.createElement('script'); script.id = 'paypal-sdk'; script.src = 'https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=USD'; script.defer = true; document.head.appendChild(script); }
-function initPayPal() {
-  state.paypalRetries++;
-  if (state.paypalRetries > 8) { dom.memberBtn.style.display = "none"; return; }
-  if (typeof paypal === "undefined") { loadPayPal(); setTimeout(initPayPal, 800); return; }
-  paypal.Buttons({ createOrder: (_, actions) => actions.order.create({ purchase_units: [{ amount: { value: "1.99" } }] }), onApprove: async (_, actions) => { try { await actions.order.capture(); setMemberPaid(); alert("支付成功！页面将刷新，广告已移除。"); location.reload(); } catch (err) { alert("支付验证失败，请刷新后重试"); console.error(err); } }, onError: () => { if (state.paypalRetries > 4) dom.memberBtn.style.display = "none"; } }).render(dom.paypalWrap);
+function loadHistoryList() {
+  hideAllFilter();
+  const hist = getHistory();
+  if (!hist.length) return showEmptyTip("暂无播放历史记录");
+  renderStationList(hist);
 }
-function bindModalEvent() { dom.memberBtn.onclick = () => dom.modal.style.display = "block"; dom.closeModal.onclick = () => dom.modal.style.display = "none"; window.onclick = (e) => e.target === dom.modal && (dom.modal.style.display = "none"); document.addEventListener("keydown", (e) => { if (e.key === "Escape" && dom.modal.style.display === "block") dom.modal.style.display = "none"; }); }
 
+// ==================== 主题/会员广告 ====================
+function isMember() {
+  return storageGet(CONFIG.STORAGE_KEYS.MEMBER) === "paid";
+}
+function setMemberPaid() {
+  storageSet(CONFIG.STORAGE_KEYS.MEMBER, "paid");
+  document.documentElement.classList.add("no-ad");
+}
+function initAdState() {
+  if (isMember()) document.documentElement.classList.add("no-ad");
+}
+function initTheme() {
+  const saved = storageGet(CONFIG.STORAGE_KEYS.THEME) || "light";
+  const adCls = isMember() ? " no-ad" : "";
+  document.documentElement.className = saved + adCls;
+}
+function toggleTheme() {
+  const html = document.documentElement;
+  const adCls = html.classList.contains("no-ad") ? " no-ad" : "";
+  const newTheme = html.classList.contains("light") ? "dark" : "light";
+  html.className = newTheme + adCls;
+  storageSet(CONFIG.STORAGE_KEYS.THEME, newTheme);
+}
+
+// ==================== DOM节点缓存 ====================
+const dom = {
+  searchInput: document.getElementById("searchInput"),
+  searchBtn: document.getElementById("searchBtn"),
+  stationList: document.getElementById("stationList"),
+  audioPlayer: document.getElementById("audioPlayer"),
+  playTitle: document.getElementById("playTitle"),
+  favBtnTop: document.getElementById("favBtnTop"),
+  historyBtnTop: document.getElementById("historyBtnTop"),
+  themeBtn: document.getElementById("themeBtn"),
+  memberBtn: document.getElementById("memberBtn"),
+  loadingTip: document.getElementById("loadingTip"),
+  emptyTip: document.getElementById("emptyTip"),
+  modal: document.getElementById("memberModal"),
+  closeModal: document.querySelector(".closeModal"),
+  paypalWrap: document.getElementById("paypal-button-container"),
+  mainNavBtns: document.querySelectorAll(".main-nav-btn"),
+  typeFilter: document.getElementById("typeFilter"),
+  typeBtns: document.querySelectorAll(".type-btn"),
+  countryFilter: document.getElementById("countryFilter"),
+  countryBtnWrap: document.getElementById("countryBtnWrap"),
+  countrySearchInput: document.getElementById("countrySearch"),
+  langFilter: document.getElementById("langFilter"),
+  langBtnWrap: document.getElementById("langBtnWrap"),
+  pageBox: document.getElementById("pageBox"),
+  prevPage: document.getElementById("prevPage"),
+  nextPage: document.getElementById("nextPage"),
+  pageNumText: document.getElementById("pageNum"),
+  adWrappers: document.querySelectorAll(".ad-wrapper")
+};
+
+// ==================== UI状态控制 ====================
+function showLoading() {
+  dom.loadingTip.style.display = "block";
+  dom.emptyTip.style.display = "none";
+}
+function hideLoading() {
+  dom.loadingTip.style.display = "none";
+}
+function showEmptyTip(text) {
+  dom.emptyTip.textContent = text;
+  dom.emptyTip.style.display = "block";
+  dom.stationList.innerHTML = "";
+}
+function hideAllFilter() {
+  dom.pageBox.style.display = "none";
+  dom.typeFilter.style.display = "none";
+  dom.countryFilter.style.display = "none";
+  dom.langFilter.style.display = "none";
+}
+function updatePageText() {
+  dom.pageNumText.textContent = `第 ${state.currentPage} 页`;
+}
+
+// ==================== 电台列表渲染 ====================
 function renderStationList(rawList) {
-  dom.stationList.innerHTML = ""; dom.emptyTip.style.display = "none";
-  const safe = rawList.filter(isSafeStation);
-  if (!safe.length) return showEmptyTip("没有找到电台，请尝试其他分类");
-  safe.forEach(station => {
-    const div = document.createElement("div"); div.className = "station-item";
-    const favStatus = isFav(station.stationuuid);
-    div.innerHTML = `<button class="fav-card-btn ${favStatus ? 'active' : ''}" data-uuid="${escapeHtml(station.stationuuid)}">${favStatus ? '★' : '☆'}</button><h4>${escapeHtml(station.name)}</h4><p>国家: ${escapeHtml(station.country || "未知")}</p><p>语言: ${escapeHtml(station.language || "未知")}</p><small>标签: ${escapeHtml((station.tags || "").slice(0, 60))}</small>`;
-    div.dataset.station = JSON.stringify(station);
-    dom.stationList.appendChild(div);
+  dom.stationList.innerHTML = "";
+  dom.emptyTip.style.display = "none";
+  const safeList = rawList.filter(isSafeStation);
+
+  if (!safeList.length) return showEmptyTip("筛选后无可用电台，请更换分类/关键词");
+
+  safeList.forEach(station => {
+    const itemDiv = document.createElement("div");
+    itemDiv.className = "station-item";
+    const faved = isFav(station.stationuuid);
+
+    itemDiv.innerHTML = `
+      <button class="fav-card-btn ${faved ? 'active' : ''}" data-uuid="${escapeHtml(station.stationuuid)}">
+        ${faved ? '★' : '☆'}
+      </button>
+      <h4>${escapeHtml(station.name)}</h4>
+      <p>国家: ${escapeHtml(station.country || "未知")}</p>
+      <p>语言: ${escapeHtml(station.language || "未知")}</p>
+      <small>标签: ${escapeHtml((station.tags || "").slice(0, 60))}</small>
+    `;
+    itemDiv.dataset.station = JSON.stringify(station);
+    dom.stationList.appendChild(itemDiv);
   });
+
+  // 卡片委托点击
   dom.stationList.onclick = (e) => {
-    const item = e.target.closest(".station-item"); if (!item) return;
-    const favBtn = e.target.closest(".fav-card-btn"); const station = JSON.parse(item.dataset.station);
-    if (favBtn) { e.stopPropagation(); const newState = toggleFav(station); favBtn.textContent = newState ? "★" : "☆"; favBtn.classList.toggle("active", newState); return; }
+    const item = e.target.closest(".station-item");
+    if (!item) return;
+    const favBtn = e.target.closest(".fav-card-btn");
+    const station = JSON.parse(item.dataset.station);
+
+    if (favBtn) {
+      e.stopPropagation();
+      const newFav = toggleFav(station);
+      favBtn.textContent = newFav ? "★" : "☆";
+      favBtn.classList.toggle("active", newFav);
+      return;
+    }
     playStation(station);
   };
 }
-async function playStation(station) {
-  dom.audioPlayer.pause(); dom.audioPlayer.src = ""; dom.audioPlayer.load();
-  try { dom.playTitle.innerText = escapeHtml(station.name); dom.audioPlayer.src = station.url; await dom.audioPlayer.play(); addHistory(station); } catch (err) { dom.playTitle.innerText = "该电台无法播放，试试其他的吧"; console.error("播放失败:", err); }
-}
-function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// ========== 国家列表（强制显示后备列表） ==========
-const FALLBACK_COUNTRIES = [
-  "United States", "United Kingdom", "Canada", "Australia", "Germany", "France", "Italy", "Spain",
-  "Japan", "China", "India", "Brazil", "Mexico", "Netherlands", "Sweden", "Norway", "Poland", "Russia"
-];
-async function loadCachedCountries() {
+/** 播放电台 */
+async function playStation(station) {
+  dom.audioPlayer.pause();
+  dom.audioPlayer.src = "";
+  dom.audioPlayer.load();
+  dom.playTitle.innerText = "加载中...";
+
   try {
-    const cacheStr = localStorage.getItem(STORAGE_COUNTRY_CACHE);
-    if (cacheStr) {
-      const cache = JSON.parse(cacheStr);
-      if (Date.now() - cache.time < CACHE_EXPIRE) {
-        state.fullCountryList = cache.data;
-        renderCountryButtons(state.fullCountryList);
-        return;
-      }
-    }
-  } catch {}
-  
-  // 尝试从 API 获取国家列表
-  let data = await safeFetch("/countries", fetchOption);
+    dom.playTitle.innerText = escapeHtml(station.name);
+    dom.audioPlayer.src = station.url;
+    await dom.audioPlayer.play();
+    addHistory(station);
+  } catch (err) {
+    dom.playTitle.innerText = "播放失败，该流地址失效";
+    console.error("播放错误:", err);
+  }
+}
+
+// ==================== 国家列表逻辑 ====================
+const FALLBACK_COUNTRIES = [
+  "United States", "United Kingdom", "Canada", "Australia", "Germany", "France",
+  "Italy", "Spain", "Japan", "China", "India", "Brazil", "Mexico", "Netherlands",
+  "Sweden", "Norway", "Poland", "Russia"
+];
+
+async function loadCachedCountries() {
+  const cache = storageGetJSON(CONFIG.STORAGE_KEYS.COUNTRY_CACHE);
+  // 缓存有效
+  if (cache && Date.now() - cache.time < CONFIG.CACHE_EXPIRE) {
+    state.fullCountryList = cache.data;
+    renderCountryButtons(state.fullCountryList);
+    bindCountrySearch();
+    return;
+  }
+
+  // 请求接口
+  let data = await safeFetch("/countries");
   let useFallback = false;
-  if (!data || data.length === 0) {
+  if (!data.length) {
     useFallback = true;
     data = FALLBACK_COUNTRIES.map(name => ({ name, stationcount: 0 }));
   }
   state.fullCountryList = data;
-  try { localStorage.setItem(STORAGE_COUNTRY_CACHE, JSON.stringify({ time: Date.now(), data })); } catch {}
+  storageSetJSON(CONFIG.STORAGE_KEYS.COUNTRY_CACHE, { time: Date.now(), data });
   renderCountryButtons(data);
-  if (useFallback) {
-    showEmptyTip("国家列表加载失败，使用内置列表（仍可正常使用）");
-  }
+  bindCountrySearch();
+  if (useFallback) showEmptyTip("服务器国家列表拉取失败，使用内置备用列表");
 }
+
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
-  if (!list || list.length === 0) {
-    dom.countryBtnWrap.innerHTML = "<p style='padding:10px;text-align:center;'>暂无国家数据</p>";
+  if (!list.length) {
+    dom.countryBtnWrap.innerHTML = "<p style='padding:10px;text-align:center'>无国家数据</p>";
     return;
   }
   list.forEach(ct => {
@@ -202,34 +371,47 @@ function renderCountryButtons(list) {
   });
 }
 
-// ========== 国家电台加载 ==========
+/** 绑定国家搜索过滤输入框（原版缺失） */
+function bindCountrySearch() {
+  if (!dom.countrySearchInput) return;
+  const filterCountry = debounce((kw) => {
+    const keyLow = kw.toLowerCase().trim();
+    const filtered = state.fullCountryList.filter(c =>
+      c.name.toLowerCase().includes(keyLow)
+    );
+    renderCountryButtons(filtered);
+  }, 250);
+  dom.countrySearchInput.oninput = (e) => filterCountry(e.target.value);
+}
+
 async function loadByCountry(countryName) {
   showLoading();
   hideAllFilter();
   dom.countryFilter.style.display = "flex";
 
   let stations = [];
-  const variants = [countryName, countryName.toLowerCase(), countryName.charAt(0).toUpperCase() + countryName.slice(1).toLowerCase()];
+  // 多名称变体查询
+  const variants = new Set([
+    countryName,
+    countryName.toLowerCase(),
+    countryName.charAt(0).toUpperCase() + countryName.slice(1).toLowerCase()
+  ]);
   for (const v of variants) {
-    const url = `/stations/search?country=${encodeURIComponent(v)}&limit=120`;
-    const data = await safeFetch(url, fetchOption);
-    if (data && data.length > 0) {
-      stations = data;
+    const res = await safeFetch(`/stations/search?country=${encodeURIComponent(v)}&limit=120`);
+    if (res.length) {
+      stations = res;
       break;
     }
   }
-  if (stations.length === 0) {
-    const topData = await safeFetch("/stations/topclick/500", fetchOption);
-    if (topData && topData.length) {
-      const lowerName = countryName.toLowerCase();
-      stations = topData.filter(station => {
-        const c = (station.country || "").toLowerCase();
-        return c.includes(lowerName);
-      });
-    }
+  // 兜底：从热门全量里筛选
+  if (!stations.length) {
+    const topAll = await safeFetch("/stations/topclick/500");
+    const cLow = countryName.toLowerCase();
+    stations = topAll.filter(s => (s.country || "").toLowerCase().includes(cLow));
   }
-  if (stations.length === 0) {
-    showEmptyTip(`未找到 ${countryName} 的电台，请稍后重试或选择其他国家。`);
+
+  if (!stations.length) {
+    showEmptyTip(`未找到「${countryName}」相关电台`);
     hideLoading();
     return;
   }
@@ -237,7 +419,7 @@ async function loadByCountry(countryName) {
   hideLoading();
 }
 
-// ========== 主要语言列表 ==========
+// ==================== 语言筛选 ====================
 const MAJOR_LANGUAGES = [
   { name: "English", code: "en", keywords: ["english", "en"] },
   { name: "Chinese", code: "zh", keywords: ["chinese", "zh", "chi", "zho"] },
@@ -254,16 +436,23 @@ const MAJOR_LANGUAGES = [
 
 function renderLanguageButtons() {
   dom.langBtnWrap.innerHTML = "";
-  const displays = {
-    English: "🇬🇧 English (英语)", Chinese: "🇨🇳 Chinese (汉语)", Spanish: "🇪🇸 Spanish (西班牙语)",
-    French: "🇫🇷 French (法语)", German: "🇩🇪 German (德语)", Japanese: "🇯🇵 Japanese (日语)",
-    Korean: "🇰🇷 Korean (韩语)", Arabic: "🇸🇦 Arabic (阿拉伯语)", Russian: "🇷🇺 Russian (俄语)",
-    Portuguese: "🇵🇹 Portuguese (葡萄牙语)", Italian: "🇮🇹 Italian (意大利语)"
+  const displayMap = {
+    English: "🇬🇧 English (英语)",
+    Chinese: "🇨🇳 Chinese (汉语)",
+    Spanish: "🇪🇸 Spanish (西班牙语)",
+    French: "🇫🇷 French (法语)",
+    German: "🇩🇪 German (德语)",
+    Japanese: "🇯🇵 Japanese (日语)",
+    Korean: "🇰🇷 Korean (韩语)",
+    Arabic: "🇸🇦 Arabic (阿拉伯语)",
+    Russian: "🇷🇺 Russian (俄语)",
+    Portuguese: "🇵🇹 Portuguese (葡萄牙语)",
+    Italian: "🇮🇹 Italian (意大利语)"
   };
   MAJOR_LANGUAGES.forEach(lang => {
     const btn = document.createElement("button");
     btn.className = "lang-btn";
-    btn.textContent = displays[lang.name];
+    btn.textContent = displayMap[lang.name];
     btn.dataset.lang = lang.name;
     btn.dataset.code = lang.code;
     btn.onclick = () => loadByLanguage(lang);
@@ -277,42 +466,33 @@ async function loadByLanguage(lang) {
   dom.langFilter.style.display = "flex";
 
   let stations = [];
-  const queries = [];
-  queries.push(`language=${encodeURIComponent(lang.name)}`);
-  queries.push(`language=${encodeURIComponent(lang.name.toLowerCase())}`);
-  queries.push(`language=${encodeURIComponent(lang.code)}`);
-  queries.push(`languagecode=${encodeURIComponent(lang.code)}`);
-  for (let kw of lang.keywords) {
-    if (kw !== lang.name.toLowerCase() && kw !== lang.code) {
-      queries.push(`language=${encodeURIComponent(kw)}`);
-    }
-  }
+  const queries = new Set();
+  queries.add(`language=${encodeURIComponent(lang.name)}`);
+  queries.add(`language=${encodeURIComponent(lang.name.toLowerCase())}`);
+  queries.add(`language=${encodeURIComponent(lang.code)}`);
+  queries.add(`languagecode=${encodeURIComponent(lang.code)}`);
+  lang.keywords.forEach(kw => queries.add(`language=${encodeURIComponent(kw)}`));
+
   for (const q of queries) {
-    const url = `/stations/search?${q}&limit=120`;
-    const data = await safeFetch(url, fetchOption);
-    if (data && data.length > 0) {
-      stations = data;
+    const res = await safeFetch(`/stations/search?${q}&limit=120`);
+    if (res.length) {
+      stations = res;
       break;
     }
   }
-  if (stations.length === 0) {
-    const topData = await safeFetch("/stations/topclick/500", fetchOption);
-    if (topData && topData.length) {
-      const lowerKeywords = lang.keywords.map(k => k.toLowerCase());
-      stations = topData.filter(station => {
-        const langField = (station.language || "").toLowerCase();
-        return lowerKeywords.some(kw => langField.includes(kw));
-      });
-      if (stations.length === 0) {
-        stations = topData.filter(station => {
-          const countryField = (station.country || "").toLowerCase();
-          return countryField.includes(lang.name.toLowerCase()) || countryField.includes(lang.code);
-        });
-      }
-    }
+
+  // 兜底筛选
+  if (!stations.length) {
+    const topAll = await safeFetch("/stations/topclick/500");
+    const kwLow = lang.keywords.map(k => k.toLowerCase());
+    stations = topAll.filter(s => {
+      const l = (s.language || "").toLowerCase();
+      return kwLow.some(w => l.includes(w));
+    });
   }
-  if (stations.length === 0) {
-    showEmptyTip(`未找到 ${lang.name} 语言的电台，请稍后重试或选择其他语言。`);
+
+  if (!stations.length) {
+    showEmptyTip(`未找到 ${lang.name} 语言电台`);
     hideLoading();
     return;
   }
@@ -320,12 +500,36 @@ async function loadByLanguage(lang) {
   hideLoading();
 }
 
-// ========== 其他数据接口 ==========
-async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
-async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
-async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
+// ==================== 分类/分页/热门 ====================
+async function loadHot() {
+  showLoading();
+  hideAllFilter();
+  const data = await safeFetch("/stations/topclick/100");
+  renderStationList(data);
+  hideLoading();
+}
 
-// ========== 搜索 ==========
+async function loadAllStations() {
+  showLoading();
+  hideAllFilter();
+  dom.pageBox.style.display = "flex";
+  const offset = (state.currentPage - 1) * CONFIG.PAGE_SIZE;
+  const data = await safeFetch(`/stations?limit=${CONFIG.PAGE_SIZE}&offset=${offset}`);
+  renderStationList(data);
+  updatePageText();
+  hideLoading();
+}
+
+async function loadByTag(tag) {
+  showLoading();
+  hideAllFilter();
+  dom.typeFilter.style.display = "flex";
+  const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`);
+  renderStationList(data);
+  hideLoading();
+}
+
+// ==================== 搜索（重构复用safeFetch） ====================
 const handleSearch = debounce(async () => {
   const q = dom.searchInput.value.trim();
   if (!q) {
@@ -336,32 +540,80 @@ const handleSearch = debounce(async () => {
   hideAllFilter();
   dom.pageBox.style.display = "none";
 
-  let stations = [];
-  for (const mirror of API_MIRRORS) {
-    const url = `${mirror}/stations/search?q=${encodeURIComponent(q)}&limit=100`;
-    try {
-      const res = await fetch(url, fetchOption);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.length) {
-          stations = data;
-          break;
-        }
-      }
-    } catch (e) {
-      console.warn(`搜索镜像 ${mirror} 失败`, e);
-    }
-  }
-  if (stations.length === 0) {
-    showEmptyTip(`没有找到与“${q}”相关的电台，请尝试其他关键词`);
+  const data = await safeFetch(`/stations/search?q=${encodeURIComponent(q)}&limit=100`);
+  if (!data.length) {
+    showEmptyTip(`无匹配电台：${q}`);
     hideLoading();
     return;
   }
-  renderStationList(stations);
+  renderStationList(data);
   hideLoading();
 });
 
-// 导航切换
+// 清空输入框自动回热榜
+dom.searchInput.addEventListener("input", debounce(() => {
+  if (dom.searchInput.value.trim() === "" && state.nowView !== "hot") {
+    state.nowView = "hot";
+    dom.mainNavBtns.forEach(b => b.classList.toggle("active", b.dataset.view === "hot"));
+    loadHot();
+  }
+}, 400));
+
+// ==================== PayPal会员支付 ====================
+function loadPayPalSDK() {
+  if (document.querySelector('#paypal-sdk')) return;
+  const script = document.createElement('script');
+  script.id = 'paypal-sdk';
+  // 替换为你自己的ClientID
+  script.src = 'https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=USD';
+  script.defer = true;
+  document.head.appendChild(script);
+}
+
+function initPayPal() {
+  state.paypalRetries++;
+  if (state.paypalRetries > CONFIG.PAYPAL_MAX_RETRY) {
+    dom.memberBtn.style.display = "none";
+    return;
+  }
+  if (typeof paypal === "undefined") {
+    loadPayPalSDK();
+    setTimeout(initPayPal, 800);
+    return;
+  }
+  // 清空防止重复渲染按钮
+  dom.paypalWrap.innerHTML = "";
+  paypal.Buttons({
+    createOrder: (_, actions) => actions.order.create({
+      purchase_units: [{ amount: { value: "1.99" } }]
+    }),
+    onApprove: async (_, actions) => {
+      try {
+        await actions.order.capture();
+        setMemberPaid();
+        alert("支付成功！刷新页面永久去除广告");
+        location.reload();
+      } catch (err) {
+        alert("支付校验失败，请刷新重试");
+        console.error("PayPal capture error:", err);
+      }
+    },
+    onError: () => {
+      if (state.paypalRetries > 4) dom.memberBtn.style.display = "none";
+    }
+  }).render(dom.paypalWrap);
+}
+
+// ==================== 事件绑定 ====================
+function bindModalEvent() {
+  dom.memberBtn.onclick = () => dom.modal.style.display = "block";
+  dom.closeModal.onclick = () => dom.modal.style.display = "none";
+  window.onclick = (e) => { if (e.target === dom.modal) dom.modal.style.display = "none"; };
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dom.modal.style.display === "block") dom.modal.style.display = "none";
+  });
+}
+
 function bindNavEvents() {
   dom.mainNavBtns.forEach(btn => {
     btn.onclick = async () => {
@@ -369,23 +621,78 @@ function bindNavEvents() {
       btn.classList.add("active");
       state.nowView = btn.dataset.view;
       state.currentPage = 1;
+
       switch (state.nowView) {
         case "hot": await loadHot(); break;
         case "all": await loadAllStations(); break;
-        case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break;
-        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("点击下方国家加载电台"); await loadCachedCountries(); break;
-        case "lang": hideAllFilter(); dom.langFilter.style.display = "flex"; renderLanguageButtons(); showEmptyTip("点击下方语言加载电台"); break;
+        case "type":
+          hideAllFilter();
+          dom.typeFilter.style.display = "flex";
+          showEmptyTip("点击下方标签筛选类型");
+          break;
+        case "country":
+          hideAllFilter();
+          dom.countryFilter.style.display = "flex";
+          showEmptyTip("搜索/点击国家加载电台");
+          await loadCachedCountries();
+          break;
+        case "lang":
+          hideAllFilter();
+          dom.langFilter.style.display = "flex";
+          renderLanguageButtons();
+          showEmptyTip("点击语言筛选电台");
+          break;
       }
     };
   });
 }
-function bindPageEvents() { dom.prevPage.onclick = async () => { if (state.nowView !== "all" || state.currentPage <= 1) return; state.currentPage--; await loadAllStations(); }; dom.nextPage.onclick = async () => { if (state.nowView !== "all") return; state.currentPage++; await loadAllStations(); }; }
-function bindVisibilityPause() { document.addEventListener("visibilitychange", () => { if (document.hidden && !dom.audioPlayer.paused) dom.audioPlayer.pause(); }); window.addEventListener('beforeunload', () => { dom.audioPlayer.pause(); dom.audioPlayer.src = ""; }); }
-function bindAllEvents() {
-  dom.favBtnTop.onclick = loadFavList; dom.historyBtnTop.onclick = loadHistoryList; dom.themeBtn.onclick = toggleTheme;
-  dom.searchBtn.onclick = handleSearch; dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch());
-  dom.typeBtns.forEach(btn => btn.onclick = () => loadByTag(btn.dataset.tag));
-  bindNavEvents(); bindPageEvents(); bindModalEvent(); bindVisibilityPause();
+
+function bindPageEvents() {
+  dom.prevPage.onclick = async () => {
+    if (state.nowView !== "all" || state.currentPage <= 1) return;
+    state.currentPage--;
+    await loadAllStations();
+  };
+  dom.nextPage.onclick = async () => {
+    if (state.nowView !== "all") return;
+    state.currentPage++;
+    await loadAllStations();
+  };
 }
-async function initApp() { initTheme(); initAdState(); bindAllEvents(); await loadHot(); setTimeout(initPayPal, 1200); }
+
+function bindVisibilityPause() {
+  // 切后台暂停播放
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && !dom.audioPlayer.paused) dom.audioPlayer.pause();
+  });
+  // 关闭页面前销毁音频
+  window.addEventListener('beforeunload', () => {
+    dom.audioPlayer.pause();
+    dom.audioPlayer.src = "";
+  });
+}
+
+function bindAllEvents() {
+  dom.favBtnTop.onclick = loadFavList;
+  dom.historyBtnTop.onclick = loadHistoryList;
+  dom.themeBtn.onclick = toggleTheme;
+  dom.searchBtn.onclick = handleSearch;
+  dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch());
+  dom.typeBtns.forEach(btn => btn.onclick = () => loadByTag(btn.dataset.tag));
+
+  bindNavEvents();
+  bindPageEvents();
+  bindModalEvent();
+  bindVisibilityPause();
+}
+
+// ==================== 应用入口 ====================
+async function initApp() {
+  initTheme();
+  initAdState();
+  bindAllEvents();
+  await loadHot();
+  setTimeout(initPayPal, 1200);
+}
+
 window.addEventListener("DOMContentLoaded", initApp);
