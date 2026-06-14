@@ -172,7 +172,6 @@ async function loadCachedCountries() {
     }
   } catch {}
   
-  // 尝试从 API 获取国家列表
   let data = await safeFetch("/countries", fetchOption);
   let useFallback = false;
   if (!data || data.length === 0) {
@@ -202,7 +201,6 @@ function renderCountryButtons(list) {
   });
 }
 
-// ========== 国家电台加载 ==========
 async function loadByCountry(countryName) {
   showLoading();
   hideAllFilter();
@@ -320,12 +318,10 @@ async function loadByLanguage(lang) {
   hideLoading();
 }
 
-// ========== 其他数据接口 ==========
 async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
 async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 
-// ========== 搜索 ==========
 const handleSearch = debounce(async () => {
   const q = dom.searchInput.value.trim();
   if (!q) {
@@ -361,7 +357,6 @@ const handleSearch = debounce(async () => {
   hideLoading();
 });
 
-// 导航切换
 function bindNavEvents() {
   dom.mainNavBtns.forEach(btn => {
     btn.onclick = async () => {
