@@ -88,6 +88,100 @@ const dom = {
 };
 let state = { currentPage: 1, nowView: "hot", fullCountryList: [], paypalRetries: 0 };
 
+// 频谱相关全局变量
+let audioContext = null;
+let sourceNode = null;
+let analyserNode = null;
+let animationId = null;
+let isSpectrumActive = false;
+
+// 停止频谱动画并释放资源
+function stopSpectrum() {
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+    if (sourceNode) {
+        try {
+            sourceNode.disconnect();
+        } catch(e) {}
+        sourceNode = null;
+    }
+    if (analyserNode) {
+        try {
+            analyserNode.disconnect();
+        } catch(e) {}
+        analyserNode = null;
+    }
+    if (audioContext) {
+        try {
+            audioContext.close();
+        } catch(e) {}
+        audioContext = null;
+    }
+    isSpectrumActive = false;
+    const canvas = document.getElementById('audioSpectrum');
+    if (canvas) canvas.style.display = 'none';
+}
+
+// 初始化频谱
+function initSpectrum(audioElement) {
+    if (!audioElement) return;
+    stopSpectrum();
+    try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyserNode = audioContext.createAnalyser();
+        analyserNode.fftSize = 256;
+        const bufferLength = analyserNode.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        sourceNode = audioContext.createMediaElementSource(audioElement);
+        sourceNode.connect(analyserNode);
+        analyserNode.connect(audioContext.destination);
+        const canvas = document.getElementById('audioSpectrum');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        canvas.style.display = 'block';
+        function drawSpectrum() {
+            if (!analyserNode || !ctx || !canvas.isConnected) return;
+            animationId = requestAnimationFrame(drawSpectrum);
+            analyserNode.getByteFrequencyData(dataArray);
+            const width = canvas.width;
+            const height = canvas.height;
+            const barWidth = (width / bufferLength) * 2.5;
+            let x = 0;
+            ctx.clearRect(0, 0, width, height);
+            const isDark = document.documentElement.classList.contains('dark');
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            if (isDark) {
+                gradient.addColorStop(0, '#1e90ff');
+                gradient.addColorStop(0.5, '#8b5cf6');
+                gradient.addColorStop(1, '#f97316');
+            } else {
+                gradient.addColorStop(0, '#1e90ff');
+                gradient.addColorStop(0.5, '#6366f1');
+                gradient.addColorStop(1, '#f59e0b');
+            }
+            for (let i = 0; i < bufferLength; i++) {
+                const value = dataArray[i];
+                const percent = value / 256;
+                const barHeight = Math.max(4, percent * height);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
+                x += barWidth;
+            }
+        }
+        drawSpectrum();
+        isSpectrumActive = true;
+        if (audioContext.state === 'suspended') audioContext.resume();
+        audioElement.addEventListener('ended', () => stopSpectrum(), { once: true });
+    } catch (err) {
+        console.warn('Web Audio API 不支持或初始化失败:', err);
+        stopSpectrum();
+    }
+}
+
 function isMember() { try { return localStorage.getItem(STORAGE_MEMBER_KEY) === "paid"; } catch { return false; } }
 function setMemberPaid() { try { localStorage.setItem(STORAGE_MEMBER_KEY, "paid"); } catch {} document.documentElement.classList.add("no-ad"); }
 function initAdState() { if (isMember()) document.documentElement.classList.add("no-ad"); }
@@ -149,8 +243,24 @@ function renderStationList(rawList) {
   };
 }
 async function playStation(station) {
-  dom.audioPlayer.pause(); dom.audioPlayer.src = ""; dom.audioPlayer.load();
-  try { dom.playTitle.innerText = escapeHtml(station.name); dom.audioPlayer.src = station.url; await dom.audioPlayer.play(); addHistory(station); } catch (err) { dom.playTitle.innerText = "该电台无法播放，试试其他的吧"; console.error("播放失败:", err); }
+    stopSpectrum(); // 停止当前频谱
+    dom.audioPlayer.pause();
+    dom.audioPlayer.src = "";
+    dom.audioPlayer.load();
+    try {
+        dom.playTitle.innerText = escapeHtml(station.name);
+        dom.audioPlayer.src = station.url;
+        await dom.audioPlayer.play();
+        addHistory(station);
+        // 成功播放后，初始化频谱
+        if (!isSpectrumActive) {
+            initSpectrum(dom.audioPlayer);
+        }
+    } catch (err) {
+        dom.playTitle.innerText = "该电台无法播放，试试其他的吧";
+        console.error("播放失败:", err);
+        stopSpectrum();
+    }
 }
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
@@ -183,7 +293,6 @@ async function loadCachedCountries() {
   } else {
     data = data.map(c => ({ name: c.name, code: c.iso_3166_1 }));
   }
-  // 按国家名称排序
   data.sort((a, b) => a.name.localeCompare(b.name));
   state.fullCountryList = data;
   renderCountryButtons(data);
@@ -195,35 +304,27 @@ function renderCountryButtons(list) {
     dom.countryBtnWrap.innerHTML = "<p style='padding:10px;text-align:center;'>暂无国家数据</p>";
     return;
   }
-
   const selectWrapper = document.createElement("div");
   selectWrapper.className = "country-select-wrapper";
-
   const select = document.createElement("select");
   select.className = "country-select";
   select.id = "countrySelect";
-
   const defaultOption = document.createElement("option");
   defaultOption.value = "";
   defaultOption.textContent = "-- 选择国家 / Select Country --";
   defaultOption.disabled = true;
   defaultOption.selected = true;
   select.appendChild(defaultOption);
-
   list.forEach(ct => {
     const option = document.createElement("option");
     option.value = ct.code;
     option.textContent = ct.name;
     select.appendChild(option);
   });
-
   select.addEventListener("change", (e) => {
     const countryCode = e.target.value;
-    if (countryCode) {
-      loadByCountryCode(countryCode);
-    }
+    if (countryCode) loadByCountryCode(countryCode);
   });
-
   selectWrapper.appendChild(select);
   dom.countryBtnWrap.appendChild(selectWrapper);
 }
@@ -238,18 +339,10 @@ async function loadByCountryCode(countryCode) {
     const topData = await safeFetch("/stations/topclick/500", fetchOption);
     if (topData && topData.length) {
       const lowerCode = countryCode.toLowerCase();
-      stations = topData.filter(station => {
-        const stationCode = (station.countrycode || "").toLowerCase();
-        return stationCode === lowerCode;
-      });
+      stations = topData.filter(station => (station.countrycode || "").toLowerCase() === lowerCode);
       if (stations.length === 0) {
         const countryName = FALLBACK_COUNTRIES.find(c => c.code === countryCode)?.name || "";
-        if (countryName) {
-          stations = topData.filter(station => {
-            const countryField = (station.country || "").toLowerCase();
-            return countryField.includes(countryName.toLowerCase());
-          });
-        }
+        if (countryName) stations = topData.filter(station => (station.country || "").toLowerCase().includes(countryName.toLowerCase()));
       }
     }
   }
@@ -262,7 +355,7 @@ async function loadByCountryCode(countryCode) {
   hideLoading();
 }
 
-// ========== 主要语言列表（保持按钮网格） ==========
+// ========== 主要语言列表 ==========
 const MAJOR_LANGUAGES = [
   { display: "🇬🇧 English (英语)", searchKey: "english" },
   { display: "🇨🇳 Chinese (汉语)", searchKey: "chinese" },
@@ -294,8 +387,7 @@ function bindLanguageEvents() {
       const targetBtn = e.target.closest('.lang-btn');
       if (!targetBtn) return;
       const searchKey = targetBtn.dataset.searchkey;
-      if (!searchKey) return;
-      loadByLanguageKey(searchKey);
+      if (searchKey) loadByLanguageKey(searchKey);
     });
   }
 }
@@ -309,14 +401,8 @@ async function loadByLanguageKey(langKey) {
     `language=${encodeURIComponent(langKey)}`,
     `language=${encodeURIComponent(langKey.toLowerCase())}`
   ];
-  if (langKey === 'chinese') {
-    queries.push(`language=mandarin`, `language=zh`);
-  }
-  const codeMap = {
-    english: 'en', spanish: 'es', french: 'fr', german: 'de',
-    japanese: 'ja', korean: 'ko', arabic: 'ar', russian: 'ru',
-    portuguese: 'pt', italian: 'it'
-  };
+  if (langKey === 'chinese') queries.push(`language=mandarin`, `language=zh`);
+  const codeMap = { english:'en', spanish:'es', french:'fr', german:'de', japanese:'ja', korean:'ko', arabic:'ar', russian:'ru', portuguese:'pt', italian:'it' };
   if (codeMap[langKey]) {
     queries.push(`language=${codeMap[langKey]}`);
     queries.push(`languagecode=${codeMap[langKey]}`);
@@ -324,10 +410,7 @@ async function loadByLanguageKey(langKey) {
   for (const q of queries) {
     const url = `/stations/search?${q}&limit=120`;
     const data = await safeFetch(url, fetchOption);
-    if (data && data.length > 0) {
-      stations = data;
-      break;
-    }
+    if (data && data.length) { stations = data; break; }
   }
   if (stations.length === 0) {
     const topData = await safeFetch("/stations/topclick/500", fetchOption);
@@ -348,17 +431,15 @@ async function loadByLanguageKey(langKey) {
   hideLoading();
 }
 
-// ========== 其他数据接口 ==========
 async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
 async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 
+// ========== 增强搜索 ==========
 const handleSearch = debounce(async () => {
   const q = dom.searchInput.value.trim();
-  if (!q) {
-    showEmptyTip("请输入搜索关键词");
-    return;
-  }
+  if (!q) { showEmptyTip("请输入搜索关键词"); return; }
+  console.log("🔍 搜索关键词:", q);
   showLoading();
   hideAllFilter();
   dom.pageBox.style.display = "none";
@@ -369,17 +450,12 @@ const handleSearch = debounce(async () => {
       const res = await fetch(url, fetchOption);
       if (res.ok) {
         const data = await res.json();
-        if (data && data.length) {
-          stations = data;
-          break;
-        }
+        if (data && data.length) { stations = data; break; }
       }
-    } catch (e) {
-      console.warn(`搜索镜像 ${mirror} 失败`, e);
-    }
+    } catch (e) { console.warn(`镜像 ${mirror} 失败`, e); }
   }
   if (stations.length === 0) {
-    showEmptyTip(`没有找到与“${q}”相关的电台，请尝试其他关键词`);
+    showEmptyTip(`没有找到与“${q}”相关的电台，请尝试其他关键词（如 rock, jazz, news）`);
     hideLoading();
     return;
   }
@@ -405,7 +481,19 @@ function bindNavEvents() {
   });
 }
 function bindPageEvents() { dom.prevPage.onclick = async () => { if (state.nowView !== "all" || state.currentPage <= 1) return; state.currentPage--; await loadAllStations(); }; dom.nextPage.onclick = async () => { if (state.nowView !== "all") return; state.currentPage++; await loadAllStations(); }; }
-function bindVisibilityPause() { document.addEventListener("visibilitychange", () => { if (document.hidden && !dom.audioPlayer.paused) dom.audioPlayer.pause(); }); window.addEventListener('beforeunload', () => { dom.audioPlayer.pause(); dom.audioPlayer.src = ""; }); }
+function bindVisibilityPause() { 
+    document.addEventListener("visibilitychange", () => { 
+        if (document.hidden && !dom.audioPlayer.paused) {
+            dom.audioPlayer.pause();
+            stopSpectrum();
+        }
+    }); 
+    window.addEventListener('beforeunload', () => { 
+        dom.audioPlayer.pause(); 
+        dom.audioPlayer.src = ""; 
+        stopSpectrum();
+    }); 
+}
 function bindAllEvents() {
   dom.favBtnTop.onclick = loadFavList; dom.historyBtnTop.onclick = loadHistoryList; dom.themeBtn.onclick = toggleTheme;
   dom.searchBtn.onclick = handleSearch; dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch());
