@@ -74,51 +74,6 @@ html.dark body {
     background: #f97316;
 }
 
-/* ========== 搜索框 ========== */
-.search-box {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 28px;
-}
-
-.search-box input {
-    flex: 1;
-    padding: 12px 20px;
-    border-radius: 48px;
-    border: 1px solid #e2e8f0;
-    background: white;
-    font-size: 1rem;
-    transition: all 0.2s;
-}
-
-html.dark .search-box input {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f1f5f9;
-}
-
-.search-box input:focus {
-    outline: none;
-    border-color: #1e90ff;
-    box-shadow: 0 0 0 3px rgba(30,144,255,0.2);
-}
-
-.search-box button {
-    background: #1e90ff;
-    color: white;
-    border: none;
-    padding: 0 28px;
-    border-radius: 48px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: 0.2s;
-}
-
-.search-box button:hover {
-    background: #0b6bcb;
-    transform: scale(1.02);
-}
-
 /* ========== 主导航 ========== */
 .main-nav {
     display: flex;
@@ -242,7 +197,7 @@ html.dark .country-select {
     box-shadow: 0 0 0 3px rgba(30,144,255,0.3);
 }
 
-/* ========== 动感播放器 ========== */
+/* ========== 播放器区域（含均衡器、弹幕） ========== */
 .player {
     position: relative;
     background: linear-gradient(135deg, #ffffff, #f8fafc);
@@ -336,7 +291,83 @@ html.dark audio::-webkit-media-controls-time-remaining-display {
     color: #e2e8f0;
 }
 
-/* ========== CSS 模拟频谱（全宽、密集） ========== */
+/* 均衡器按钮行 */
+.eq-panel {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin: 12px 0 8px;
+    flex-wrap: wrap;
+}
+.eq-btn {
+    background: #e2e8f0;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 40px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: 0.2s;
+}
+html.dark .eq-btn {
+    background: #334155;
+    color: #f1f5f9;
+}
+.eq-btn.active {
+    background: #1e90ff;
+    color: white;
+    box-shadow: 0 2px 6px rgba(30,144,255,0.3);
+}
+.danmaku-toggle {
+    background: #1e293b;
+    color: white;
+    border: none;
+    border-radius: 40px;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.share-btn {
+    background: #f97316;
+    border: none;
+    border-radius: 40px;
+    padding: 6px 16px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: 0.2s;
+}
+.share-btn:hover {
+    background: #ea580c;
+    transform: scale(1.02);
+}
+.danmaku-input-area {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+.danmaku-input-area input {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 40px;
+    border: 1px solid #cbd5e1;
+    background: white;
+}
+html.dark .danmaku-input-area input {
+    background: #1e293b;
+    color: #e2e8f0;
+    border-color: #475569;
+}
+.danmaku-input-area button {
+    background: #1e90ff;
+    border: none;
+    padding: 0 20px;
+    border-radius: 40px;
+    color: white;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* CSS 模拟频谱（全宽、密集） */
 .spectrum-container {
     display: flex;
     align-items: flex-end;
@@ -364,7 +395,7 @@ html.dark .spectrum-container {
     min-width: 2px;
 }
 
-/* 30根柱子的不同动画延迟和起始高度 */
+/* 30根柱子的不同动画延迟和起始高度（示例，实际由JS生成但样式保证动态） */
 .spectrum-bar:nth-child(1) { animation-delay: 0.00s; height: 15px; }
 .spectrum-bar:nth-child(2) { animation-delay: 0.03s; height: 25px; }
 .spectrum-bar:nth-child(3) { animation-delay: 0.06s; height: 40px; }
@@ -453,6 +484,31 @@ html.dark .station-item {
 .fav-card-btn.active {
     color: #fbbf24;
     text-shadow: 0 0 2px rgba(0,0,0,0.2);
+}
+
+/* ========== AI 推荐栏 ========== */
+#aiRecommendBox {
+    margin: 20px 0;
+    padding: 12px;
+    background: rgba(30,144,255,0.05);
+    border-radius: 28px;
+}
+html.dark #aiRecommendBox {
+    background: rgba(30,144,255,0.1);
+}
+#aiRecommendList {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+#aiRecommendList .station-item {
+    min-width: 180px;
+    margin: 0;
+    background: white;
+}
+html.dark #aiRecommendList .station-item {
+    background: #1e293b;
 }
 
 /* ========== 分页 ========== */
@@ -609,5 +665,12 @@ html.no-ad .ad-wrapper {
     }
     .spectrum-bar {
         min-width: 1px;
+    }
+    .eq-btn, .danmaku-toggle, .share-btn {
+        padding: 4px 12px;
+        font-size: 0.7rem;
+    }
+    .danmaku-input-area input {
+        font-size: 0.8rem;
     }
 }
