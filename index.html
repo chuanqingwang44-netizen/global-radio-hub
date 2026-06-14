@@ -75,6 +75,8 @@
     <div class="player">
         <h3 id="playTitle">Select a station to play</h3>
         <audio id="audioPlayer" controls preload="none" crossorigin="anonymous"></audio>
+        <!-- 音频频谱画布 -->
+        <canvas id="audioSpectrum" class="audio-spectrum" width="800" height="80" style="display: none;"></canvas>
     </div>
 
     <div id="loadingTip" style="text-align:center;padding:15px;font-size:16px;display:none;">Loading stations...</div>
