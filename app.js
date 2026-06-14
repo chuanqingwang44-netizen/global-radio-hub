@@ -154,7 +154,7 @@ async function playStation(station) {
 }
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// ========== 国家列表（带内置后备） ==========
+// ========== 国家列表（强制显示后备列表） ==========
 const FALLBACK_COUNTRIES = [
   "United States", "United Kingdom", "Canada", "Australia", "Germany", "France", "Italy", "Spain",
   "Japan", "China", "India", "Brazil", "Mexico", "Netherlands", "Sweden", "Norway", "Poland", "Russia"
@@ -171,17 +171,27 @@ async function loadCachedCountries() {
       }
     }
   } catch {}
+  
+  // 尝试从 API 获取国家列表
   let data = await safeFetch("/countries", fetchOption);
+  let useFallback = false;
   if (!data || data.length === 0) {
+    useFallback = true;
     data = FALLBACK_COUNTRIES.map(name => ({ name, stationcount: 0 }));
-    showEmptyTip("国家列表加载失败，使用内置列表（仍可正常使用）");
   }
   state.fullCountryList = data;
   try { localStorage.setItem(STORAGE_COUNTRY_CACHE, JSON.stringify({ time: Date.now(), data })); } catch {}
   renderCountryButtons(data);
+  if (useFallback) {
+    showEmptyTip("国家列表加载失败，使用内置列表（仍可正常使用）");
+  }
 }
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
+  if (!list || list.length === 0) {
+    dom.countryBtnWrap.innerHTML = "<p style='padding:10px;text-align:center;'>暂无国家数据</p>";
+    return;
+  }
   list.forEach(ct => {
     const btn = document.createElement("button");
     btn.className = "country-btn";
@@ -192,7 +202,7 @@ function renderCountryButtons(list) {
   });
 }
 
-// ========== 国家电台加载（带兜底） ==========
+// ========== 国家电台加载 ==========
 async function loadByCountry(countryName) {
   showLoading();
   hideAllFilter();
@@ -351,8 +361,6 @@ const handleSearch = debounce(async () => {
   hideLoading();
 });
 
-// 注意：国家输入框已移除，不需要 filterCountry 函数和事件绑定
-
 // 导航切换
 function bindNavEvents() {
   dom.mainNavBtns.forEach(btn => {
@@ -365,7 +373,7 @@ function bindNavEvents() {
         case "hot": await loadHot(); break;
         case "all": await loadAllStations(); break;
         case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break;
-        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("点击下方国家加载电台"); if (!state.fullCountryList.length) await loadCachedCountries(); break;
+        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("点击下方国家加载电台"); await loadCachedCountries(); break;
         case "lang": hideAllFilter(); dom.langFilter.style.display = "flex"; renderLanguageButtons(); showEmptyTip("点击下方语言加载电台"); break;
       }
     };
@@ -376,7 +384,6 @@ function bindVisibilityPause() { document.addEventListener("visibilitychange", (
 function bindAllEvents() {
   dom.favBtnTop.onclick = loadFavList; dom.historyBtnTop.onclick = loadHistoryList; dom.themeBtn.onclick = toggleTheme;
   dom.searchBtn.onclick = handleSearch; dom.searchInput.addEventListener("keydown", e => e.key === "Enter" && handleSearch());
-  // 国家输入框已不存在，无需绑定 filterCountry
   dom.typeBtns.forEach(btn => btn.onclick = () => loadByTag(btn.dataset.tag));
   bindNavEvents(); bindPageEvents(); bindModalEvent(); bindVisibilityPause();
 }
