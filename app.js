@@ -167,19 +167,19 @@ function renderCountryButtons(list) {
   list.forEach(ct => { const btn = document.createElement("button"); btn.className = "country-btn"; btn.textContent = `${escapeHtml(ct.name)} (${ct.stationcount})`; btn.dataset.country = ct.name; btn.onclick = () => loadByCountry(ct.name); dom.countryBtnWrap.appendChild(btn); });
 }
 
-// ========== 主要语言列表（内置，不依赖 API） ==========
+// ========== 主要语言列表（内置） ==========
 const MAJOR_LANGUAGES = [
-  { name: "English", display: "🇬🇧 English (英语)" },
-  { name: "Chinese", display: "🇨🇳 Chinese (汉语)" },
-  { name: "Spanish", display: "🇪🇸 Spanish (西班牙语)" },
-  { name: "French", display: "🇫🇷 French (法语)" },
-  { name: "German", display: "🇩🇪 German (德语)" },
-  { name: "Japanese", display: "🇯🇵 Japanese (日语)" },
-  { name: "Korean", display: "🇰🇷 Korean (韩语)" },
-  { name: "Arabic", display: "🇸🇦 Arabic (阿拉伯语)" },
-  { name: "Russian", display: "🇷🇺 Russian (俄语)" },
-  { name: "Portuguese", display: "🇵🇹 Portuguese (葡萄牙语)" },
-  { name: "Italian", display: "🇮🇹 Italian (意大利语)" }
+  { name: "English", code: "en", display: "🇬🇧 English (英语)" },
+  { name: "Chinese", code: "zh", display: "🇨🇳 Chinese (汉语)" },
+  { name: "Spanish", code: "es", display: "🇪🇸 Spanish (西班牙语)" },
+  { name: "French", code: "fr", display: "🇫🇷 French (法语)" },
+  { name: "German", code: "de", display: "🇩🇪 German (德语)" },
+  { name: "Japanese", code: "ja", display: "🇯🇵 Japanese (日语)" },
+  { name: "Korean", code: "ko", display: "🇰🇷 Korean (韩语)" },
+  { name: "Arabic", code: "ar", display: "🇸🇦 Arabic (阿拉伯语)" },
+  { name: "Russian", code: "ru", display: "🇷🇺 Russian (俄语)" },
+  { name: "Portuguese", code: "pt", display: "🇵🇹 Portuguese (葡萄牙语)" },
+  { name: "Italian", code: "it", display: "🇮🇹 Italian (意大利语)" }
 ];
 
 function renderLanguageButtons() {
@@ -189,44 +189,48 @@ function renderLanguageButtons() {
     btn.className = "lang-btn";
     btn.textContent = lang.display;
     btn.dataset.lang = lang.name;
-    btn.onclick = () => loadByLanguage(lang.name);
+    btn.dataset.code = lang.code;
+    btn.onclick = () => loadByLanguage(lang.name, lang.code);
     dom.langBtnWrap.appendChild(btn);
   });
 }
 
-async function loadByLanguage(langName) {
+// ========== 增强的语言电台加载 ==========
+async function loadByLanguage(langName, langCode) {
   showLoading();
   hideAllFilter();
   dom.langFilter.style.display = "flex";
   
-  // 尝试多种名称变体
-  const variants = [langName, langName.toLowerCase(), langName.charAt(0).toUpperCase() + langName.slice(1).toLowerCase()];
-  if (langName.toLowerCase() === "chinese") variants.push("zh", "chi", "zho");
-  if (langName.toLowerCase() === "english") variants.push("en");
-  if (langName.toLowerCase() === "spanish") variants.push("es");
-  if (langName.toLowerCase() === "french") variants.push("fr");
-  if (langName.toLowerCase() === "german") variants.push("de");
-  if (langName.toLowerCase() === "japanese") variants.push("ja");
-  if (langName.toLowerCase() === "korean") variants.push("ko");
-  if (langName.toLowerCase() === "arabic") variants.push("ar");
-  if (langName.toLowerCase() === "russian") variants.push("ru");
-  if (langName.toLowerCase() === "portuguese") variants.push("pt");
-  if (langName.toLowerCase() === "italian") variants.push("it");
+  // 尝试多种查询参数：语言名称、语言代码、小写变体等
+  const queries = [
+    `language=${encodeURIComponent(langName)}`,
+    `language=${encodeURIComponent(langName.toLowerCase())}`,
+    `language=${encodeURIComponent(langCode)}`,
+    `languagecode=${encodeURIComponent(langCode)}`,
+    `language=${encodeURIComponent(langName.charAt(0).toUpperCase() + langName.slice(1).toLowerCase())}`
+  ];
+  
+  // 特殊处理中文：增加 "chi", "zho"
+  if (langCode === "zh") {
+    queries.push(`language=chi`, `language=zho`);
+  }
   
   let stations = [];
-  for (const v of variants) {
-    const url = `/stations/search?language=${encodeURIComponent(v)}&limit=120`;
+  for (const query of queries) {
+    const url = `/stations/search?${query}&limit=120`;
     const data = await safeFetch(url, fetchOption);
     if (data && data.length > 0) {
       stations = data;
       break;
     }
   }
+  
   if (stations.length === 0) {
-    showEmptyTip(`未找到 ${langName} 语言的电台，请稍后重试`);
+    showEmptyTip(`未找到 ${langName} 语言的电台。可能是 API 暂时无数据，请稍后重试或尝试其他语言。`);
     hideLoading();
     return;
   }
+  
   renderStationList(stations);
   hideLoading();
 }
