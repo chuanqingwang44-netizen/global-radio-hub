@@ -7,7 +7,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="preconnect" href="https://de1.api.radio-browser.info">
     <title>Global Radio Hub | Free Live Radio Worldwide</title>
-    <meta name="description" content="Listen to thousands of free live radio stations, filter by country, genre, language. Browse all stations with pagination.">
+    <meta name="description" content="Listen to thousands of free live radio stations, filter by country, genre, language.">
     <meta name="keywords" content="radio,live radio,global radio,free fm,online radio">
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,92 +29,101 @@
         <p>Add to home screen for APP experience 📱</p>
         <div class="header-buttons">
             <button id="themeBtn" class="header-btn">🌓 Theme</button>
-            <button id="favBtnTop" class="header-btn">My Favorites</button>
-            <button id="historyBtnTop" class="header-btn">Play History</button>
+            <button id="favBtnTop" class="header-btn">❤️ Favorites</button>
             <button id="memberBtn" class="header-btn member-btn">Remove Ads</button>
         </div>
     </header>
 
+    <!-- 广告位 -->
     <div class="ad-block ad-top ad-wrapper">
         <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="1111111111" data-ad-format="auto" data-full-width-responsive="true"></ins>
         <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 
+    <!-- 搜索栏 -->
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Search radio station name..." autocomplete="off">
+        <input type="text" id="searchInput" placeholder="Search radio station..." autocomplete="off">
         <button id="searchBtn">Search</button>
     </div>
 
-    <div class="main-nav">
-        <button class="main-nav-btn active" data-view="hot">Popular</button>
-        <button class="main-nav-btn" data-view="all">All Stations List</button>
-        <button class="main-nav-btn" data-view="type">Browse By Genre</button>
-        <button class="main-nav-btn" data-view="country">Browse By Country</button>
-        <button class="main-nav-btn" data-view="lang">Browse By Language</button>
-    </div>
+    <!-- 主内容区：Now Playing + Recently Played -->
+    <div class="main-content">
+        <!-- Now Playing 区域 -->
+        <div class="now-playing-card" id="nowPlayingCard">
+            <div class="now-playing-header">Now Playing</div>
+            <div class="now-playing-info">
+                <div class="station-icon">📻</div>
+                <div class="station-details">
+                    <h2 id="nowPlayingName">Select a station</h2>
+                    <p id="nowPlayingCountry" class="station-meta"></p>
+                    <p id="nowPlayingTags" class="station-meta"></p>
+                </div>
+            </div>
+            <div class="player-controls">
+                <audio id="audioPlayer" controls preload="none" crossorigin="anonymous"></audio>
+            </div>
+        </div>
 
-    <div class="type-filter" id="typeFilter">
-        <button class="type-btn" data-tag="music">Music</button>
-        <button class="type-btn" data-tag="pop">Pop</button>
-        <button class="type-btn" data-tag="rock">Rock</button>
-        <button class="type-btn" data-tag="jazz">Jazz</button>
-        <button class="type-btn" data-tag="classical">Classical</button>
-        <button class="type-btn" data-tag="talk">Talk / Podcast</button>
-        <button class="type-btn" data-tag="learning">Language Learning</button>
-        <button class="type-btn" data-tag="news">General News</button>
-    </div>
+        <!-- Recently Played 区域 -->
+        <div class="recently-played">
+            <div class="section-header">Recently Played</div>
+            <div id="recentList" class="recent-list">
+                <div class="empty-recent">No recent stations</div>
+            </div>
+        </div>
 
-    <div class="country-filter" id="countryFilter">
-        <div class="country-list" id="countryBtnWrap"></div>
-    </div>
+        <!-- 浏览电台折叠区（保留原搜索/分类功能） -->
+        <div class="browse-section">
+            <div class="section-header toggle-header" id="toggleBrowse">
+                <span>Browse Stations</span>
+                <span class="toggle-icon">▼</span>
+            </div>
+            <div class="browse-content" id="browseContent" style="display: none;">
+                <!-- 导航按钮 -->
+                <div class="main-nav">
+                    <button class="main-nav-btn active" data-view="hot">Popular</button>
+                    <button class="main-nav-btn" data-view="all">All Stations</button>
+                    <button class="main-nav-btn" data-view="type">By Genre</button>
+                    <button class="main-nav-btn" data-view="country">By Country</button>
+                    <button class="main-nav-btn" data-view="lang">By Language</button>
+                </div>
 
-    <div class="lang-filter" id="langFilter">
-        <div class="lang-list" id="langBtnWrap"></div>
-    </div>
+                <!-- 动态筛选器 -->
+                <div class="type-filter" id="typeFilter">
+                    <button class="type-btn" data-tag="music">Music</button>
+                    <button class="type-btn" data-tag="pop">Pop</button>
+                    <button class="type-btn" data-tag="rock">Rock</button>
+                    <button class="type-btn" data-tag="jazz">Jazz</button>
+                    <button class="type-btn" data-tag="classical">Classical</button>
+                    <button class="type-btn" data-tag="talk">Talk / Podcast</button>
+                    <button class="type-btn" data-tag="learning">Language Learning</button>
+                    <button class="type-btn" data-tag="news">General News</button>
+                </div>
 
-    <div class="player">
-        <h3 id="playTitle">Select a station to play</h3>
-        <audio id="audioPlayer" controls preload="none" crossorigin="anonymous"></audio>
-        <!-- 真实频谱 canvas（默认隐藏） -->
-        <canvas id="realSpectrum" class="real-spectrum" width="800" height="80" style="display: none;"></canvas>
-        <!-- CSS 模拟频谱（回退方案，默认隐藏） -->
-        <div class="spectrum-container" id="cssSpectrum" style="display: none;">
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
-            <div class="spectrum-bar"></div><div class="spectrum-bar"></div>
+                <div class="country-filter" id="countryFilter">
+                    <div class="country-list" id="countryBtnWrap"></div>
+                </div>
+
+                <div class="lang-filter" id="langFilter">
+                    <div class="lang-list" id="langBtnWrap"></div>
+                </div>
+
+                <!-- 电台列表容器（搜索结果/分类结果） -->
+                <div id="stationList" class="station-list"></div>
+                <div class="page-box" id="pageBox" style="display: none;">
+                    <button id="prevPage">← Prev</button>
+                    <span id="pageNum">Page 1</span>
+                    <button id="nextPage">Next →</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div id="loadingTip" style="text-align:center;padding:15px;font-size:16px;display:none;">Loading stations...</div>
+    <div id="loadingTip" style="text-align:center;padding:15px;display:none;">Loading...</div>
     <div id="emptyTip" style="text-align:center;padding:20px;display:none;"></div>
 
     <div class="ad-block ad-middle ad-wrapper">
         <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="2222222222" data-ad-format="auto" data-full-width-responsive="true"></ins>
-        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    </div>
-
-    <div class="list-container" id="stationList"></div>
-
-    <div class="page-box" id="pageBox">
-        <button id="prevPage">← Prev</button>
-        <span id="pageNum">Page 1</span>
-        <button id="nextPage">Next →</button>
-    </div>
-
-    <div class="ad-block ad-bottom ad-wrapper">
-        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXX" data-ad-slot="3333333333" data-ad-format="auto" data-full-width-responsive="true"></ins>
         <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 
@@ -129,7 +138,7 @@
     </div>
 
     <footer class="footer">
-        <p>This platform only provides directory & external links. We do not store or rebroadcast audio streams.</p>
+        <p>Directory only – no audio storage</p>
         <p>Contact: wcqyt@163.com | <a href="privacy.html">Privacy & DMCA</a></p>
     </footer>
 
