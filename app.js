@@ -169,68 +169,83 @@ function renderCountryButtons(list) {
 
 // ========== 主要语言列表（内置） ==========
 const MAJOR_LANGUAGES = [
-  { name: "English", code: "en", display: "🇬🇧 English (英语)" },
-  { name: "Chinese", code: "zh", display: "🇨🇳 Chinese (汉语)" },
-  { name: "Spanish", code: "es", display: "🇪🇸 Spanish (西班牙语)" },
-  { name: "French", code: "fr", display: "🇫🇷 French (法语)" },
-  { name: "German", code: "de", display: "🇩🇪 German (德语)" },
-  { name: "Japanese", code: "ja", display: "🇯🇵 Japanese (日语)" },
-  { name: "Korean", code: "ko", display: "🇰🇷 Korean (韩语)" },
-  { name: "Arabic", code: "ar", display: "🇸🇦 Arabic (阿拉伯语)" },
-  { name: "Russian", code: "ru", display: "🇷🇺 Russian (俄语)" },
-  { name: "Portuguese", code: "pt", display: "🇵🇹 Portuguese (葡萄牙语)" },
-  { name: "Italian", code: "it", display: "🇮🇹 Italian (意大利语)" }
+  { name: "English", code: "en", keywords: ["english", "en"] },
+  { name: "Chinese", code: "zh", keywords: ["chinese", "zh", "chi", "zho"] },
+  { name: "Spanish", code: "es", keywords: ["spanish", "es"] },
+  { name: "French", code: "fr", keywords: ["french", "fr"] },
+  { name: "German", code: "de", keywords: ["german", "de"] },
+  { name: "Japanese", code: "ja", keywords: ["japanese", "ja"] },
+  { name: "Korean", code: "ko", keywords: ["korean", "ko"] },
+  { name: "Arabic", code: "ar", keywords: ["arabic", "ar"] },
+  { name: "Russian", code: "ru", keywords: ["russian", "ru"] },
+  { name: "Portuguese", code: "pt", keywords: ["portuguese", "pt"] },
+  { name: "Italian", code: "it", keywords: ["italian", "it"] }
 ];
 
 function renderLanguageButtons() {
   dom.langBtnWrap.innerHTML = "";
+  const displays = {
+    English: "🇬🇧 English (英语)", Chinese: "🇨🇳 Chinese (汉语)", Spanish: "🇪🇸 Spanish (西班牙语)",
+    French: "🇫🇷 French (法语)", German: "🇩🇪 German (德语)", Japanese: "🇯🇵 Japanese (日语)",
+    Korean: "🇰🇷 Korean (韩语)", Arabic: "🇸🇦 Arabic (阿拉伯语)", Russian: "🇷🇺 Russian (俄语)",
+    Portuguese: "🇵🇹 Portuguese (葡萄牙语)", Italian: "🇮🇹 Italian (意大利语)"
+  };
   MAJOR_LANGUAGES.forEach(lang => {
     const btn = document.createElement("button");
     btn.className = "lang-btn";
-    btn.textContent = lang.display;
+    btn.textContent = displays[lang.name];
     btn.dataset.lang = lang.name;
     btn.dataset.code = lang.code;
-    btn.onclick = () => loadByLanguage(lang.name, lang.code);
+    btn.onclick = () => loadByLanguage(lang);
     dom.langBtnWrap.appendChild(btn);
   });
 }
 
-// ========== 增强的语言电台加载 ==========
-async function loadByLanguage(langName, langCode) {
+async function loadByLanguage(lang) {
   showLoading();
   hideAllFilter();
   dom.langFilter.style.display = "flex";
   
-  // 尝试多种查询参数：语言名称、语言代码、小写变体等
-  const queries = [
-    `language=${encodeURIComponent(langName)}`,
-    `language=${encodeURIComponent(langName.toLowerCase())}`,
-    `language=${encodeURIComponent(langCode)}`,
-    `languagecode=${encodeURIComponent(langCode)}`,
-    `language=${encodeURIComponent(langName.charAt(0).toUpperCase() + langName.slice(1).toLowerCase())}`
-  ];
-  
-  // 特殊处理中文：增加 "chi", "zho"
-  if (langCode === "zh") {
-    queries.push(`language=chi`, `language=zho`);
-  }
-  
   let stations = [];
-  for (const query of queries) {
-    const url = `/stations/search?${query}&limit=120`;
+  const queries = [];
+  queries.push(`language=${encodeURIComponent(lang.name)}`);
+  queries.push(`language=${encodeURIComponent(lang.name.toLowerCase())}`);
+  queries.push(`language=${encodeURIComponent(lang.code)}`);
+  queries.push(`languagecode=${encodeURIComponent(lang.code)}`);
+  for (let kw of lang.keywords) {
+    if (kw !== lang.name.toLowerCase() && kw !== lang.code) {
+      queries.push(`language=${encodeURIComponent(kw)}`);
+    }
+  }
+  for (const q of queries) {
+    const url = `/stations/search?${q}&limit=120`;
     const data = await safeFetch(url, fetchOption);
     if (data && data.length > 0) {
       stations = data;
       break;
     }
   }
-  
   if (stations.length === 0) {
-    showEmptyTip(`未找到 ${langName} 语言的电台。可能是 API 暂时无数据，请稍后重试或尝试其他语言。`);
+    const topData = await safeFetch("/stations/topclick/500", fetchOption);
+    if (topData && topData.length) {
+      const lowerKeywords = lang.keywords.map(k => k.toLowerCase());
+      stations = topData.filter(station => {
+        const langField = (station.language || "").toLowerCase();
+        return lowerKeywords.some(kw => langField.includes(kw));
+      });
+      if (stations.length === 0) {
+        stations = topData.filter(station => {
+          const countryField = (station.country || "").toLowerCase();
+          return countryField.includes(lang.name.toLowerCase()) || countryField.includes(lang.code);
+        });
+      }
+    }
+  }
+  if (stations.length === 0) {
+    showEmptyTip(`未找到 ${lang.name} 语言的电台，请稍后重试或选择其他语言。`);
     hideLoading();
     return;
   }
-  
   renderStationList(stations);
   hideLoading();
 }
@@ -241,8 +256,47 @@ async function loadAllStations() { showLoading(); dom.typeFilter.style.display =
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 async function loadByCountry(name) { showLoading(); hideAllFilter(); dom.countryFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?country=${encodeURIComponent(name)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
 
-const handleSearch = debounce(async () => { const q = dom.searchInput.value.trim(); if (!q) return; showLoading(); hideAllFilter(); const data = await safeFetch(`/stations/search?q=${encodeURIComponent(q)}`, fetchOption); renderStationList(data); hideLoading(); });
-const filterCountry = debounce(() => { const kw = dom.countrySearchInput.value.trim().toLowerCase(); const filtered = state.fullCountryList.filter(ct => ct.name.toLowerCase().includes(kw)); renderCountryButtons(filtered); });
+// ========== 搜索修复（关键） ==========
+const handleSearch = debounce(async () => {
+  const q = dom.searchInput.value.trim();
+  if (!q) {
+    showEmptyTip("请输入搜索关键词");
+    return;
+  }
+  showLoading();
+  hideAllFilter();
+  dom.pageBox.style.display = "none";
+  
+  let stations = [];
+  for (const mirror of API_MIRRORS) {
+    const url = `${mirror}/stations/search?q=${encodeURIComponent(q)}&limit=100`;
+    try {
+      const res = await fetch(url, fetchOption);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.length) {
+          stations = data;
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn(`搜索镜像 ${mirror} 失败`, e);
+    }
+  }
+  if (stations.length === 0) {
+    showEmptyTip(`没有找到与“${q}”相关的电台，请尝试其他关键词`);
+    hideLoading();
+    return;
+  }
+  renderStationList(stations);
+  hideLoading();
+});
+
+const filterCountry = debounce(() => {
+  const kw = dom.countrySearchInput.value.trim().toLowerCase();
+  const filtered = state.fullCountryList.filter(ct => ct.name.toLowerCase().includes(kw));
+  renderCountryButtons(filtered);
+});
 
 // 导航切换
 function bindNavEvents() {
