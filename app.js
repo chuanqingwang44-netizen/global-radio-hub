@@ -324,16 +324,23 @@ async function playStation(station) {
   }
 }
 
-// ==================== 国家列表逻辑 ====================
-const FALLBACK_COUNTRIES = [
-  "United States", "United Kingdom", "Canada", "Australia", "Germany", "France",
-  "Italy", "Spain", "Japan", "China", "India", "Brazil", "Mexico", "Netherlands",
-  "Sweden", "Norway", "Poland", "Russia"
-];
+// ==================== 国家列表逻辑（修复版） ====================
+// 备用完整国名映射（code: 完整名称）
+const COUNTRY_NAME_MAP = {
+  US: "United States", GB: "United Kingdom", CA: "Canada", AU: "Australia",
+  DE: "Germany", FR: "France", IT: "Italy", ES: "Spain", JP: "Japan",
+  CN: "China", IN: "India", BR: "Brazil", MX: "Mexico", NL: "Netherlands",
+  SE: "Sweden", NO: "Norway", PL: "Poland", RU: "Russia"
+};
+// 兜底备用数据（code结构，和API一致）
+const FALLBACK_COUNTRIES_RAW = Object.keys(COUNTRY_NAME_MAP).map(code => ({
+  name: code,
+  stationcount: 0
+}));
 
 async function loadCachedCountries() {
   const cache = storageGetJSON(CONFIG.STORAGE_KEYS.COUNTRY_CACHE);
-  // 缓存有效
+  // 缓存有效直接渲染
   if (cache && Date.now() - cache.time < CONFIG.CACHE_EXPIRE) {
     state.fullCountryList = cache.data;
     renderCountryButtons(state.fullCountryList);
@@ -341,77 +348,92 @@ async function loadCachedCountries() {
     return;
   }
 
-  // 请求接口
+  // 请求 /countries 接口（返回 code 数组）
   let data = await safeFetch("/countries");
   let useFallback = false;
-  if (!data.length) {
+
+  // 接口空/失败启用兜底
+  if (!Array.isArray(data) || data.length === 0) {
     useFallback = true;
-    data = FALLBACK_COUNTRIES.map(name => ({ name, stationcount: 0 }));
+    data = FALLBACK_COUNTRIES_RAW;
   }
+
   state.fullCountryList = data;
+  // 写入缓存
   storageSetJSON(CONFIG.STORAGE_KEYS.COUNTRY_CACHE, { time: Date.now(), data });
+
   renderCountryButtons(data);
   bindCountrySearch();
-  if (useFallback) showEmptyTip("服务器国家列表拉取失败，使用内置备用列表");
+
+  if (useFallback) {
+    showEmptyTip("服务器国家列表拉取失败，使用内置备用列表");
+  }
 }
 
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
-  if (!list.length) {
+  if (!list || list.length === 0) {
     dom.countryBtnWrap.innerHTML = "<p style='padding:10px;text-align:center'>无国家数据</p>";
     return;
   }
+
   list.forEach(ct => {
+    const countryCode = ct.name?.toUpperCase() || "";
+    const fullName = COUNTRY_NAME_MAP[countryCode] || countryCode;
+    const count = ct.stationcount ?? 0;
+
     const btn = document.createElement("button");
     btn.className = "country-btn";
-    btn.textContent = `${escapeHtml(ct.name)} (${ct.stationcount || 0})`;
-    btn.dataset.country = ct.name;
-    btn.onclick = () => loadByCountry(ct.name);
+    // 显示：完整名称(数量)
+    btn.textContent = `${escapeHtml(fullName)} (${count})`;
+    // 存code和全名，点击优先用code查询（API精准匹配）
+    btn.dataset.code = countryCode;
+    btn.dataset.fullname = fullName;
+
+    btn.onclick = () => loadByCountry(countryCode, fullName);
     dom.countryBtnWrap.appendChild(btn);
   });
 }
 
-/** 绑定国家搜索过滤输入框（原版缺失） */
+/** 绑定国家搜索过滤（修复：匹配code+全名） */
 function bindCountrySearch() {
   if (!dom.countrySearchInput) return;
   const filterCountry = debounce((kw) => {
     const keyLow = kw.toLowerCase().trim();
-    const filtered = state.fullCountryList.filter(c =>
-      c.name.toLowerCase().includes(keyLow)
-    );
+    const filtered = state.fullCountryList.filter(c => {
+      const code = c.name?.toLowerCase() || "";
+      const full = COUNTRY_NAME_MAP[c.name?.toUpperCase()]?.toLowerCase() || "";
+      return code.includes(keyLow) || full.includes(keyLow);
+    });
     renderCountryButtons(filtered);
   }, 250);
   dom.countrySearchInput.oninput = (e) => filterCountry(e.target.value);
 }
 
-async function loadByCountry(countryName) {
+// 加载国家电台：优先用code精准查询，兜底全名模糊
+async function loadByCountry(countryCode, displayName) {
   showLoading();
   hideAllFilter();
   dom.countryFilter.style.display = "flex";
 
   let stations = [];
-  // 多名称变体查询
-  const variants = new Set([
-    countryName,
-    countryName.toLowerCase(),
-    countryName.charAt(0).toUpperCase() + countryName.slice(1).toLowerCase()
-  ]);
-  for (const v of variants) {
-    const res = await safeFetch(`/stations/search?country=${encodeURIComponent(v)}&limit=120`);
-    if (res.length) {
-      stations = res;
-      break;
-    }
+  // 1. 优先用countrycode精准匹配（官方推荐，最准）
+  if (countryCode) {
+    stations = await safeFetch(`/stations/bycountrycodeexact/${encodeURIComponent(countryCode)}?limit=120`);
   }
-  // 兜底：从热门全量里筛选
+  // 2. 精准没数据，用name模糊搜索
+  if (!stations.length && displayName) {
+    stations = await safeFetch(`/stations/search?country=${encodeURIComponent(displayName)}&limit=120`);
+  }
+  // 3. 二次兜底：全量热门里筛选
   if (!stations.length) {
     const topAll = await safeFetch("/stations/topclick/500");
-    const cLow = countryName.toLowerCase();
-    stations = topAll.filter(s => (s.country || "").toLowerCase().includes(cLow));
+    const matchText = (displayName || countryCode).toLowerCase();
+    stations = topAll.filter(s => (s.country || "").toLowerCase().includes(matchText));
   }
 
   if (!stations.length) {
-    showEmptyTip(`未找到「${countryName}」相关电台`);
+    showEmptyTip(`未找到「${displayName || countryCode}」相关电台`);
     hideLoading();
     return;
   }
