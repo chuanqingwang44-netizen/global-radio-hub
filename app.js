@@ -88,103 +88,6 @@ const dom = {
 };
 let state = { currentPage: 1, nowView: "hot", fullCountryList: [], paypalRetries: 0 };
 
-// ========== 频谱相关（单例模式，稳健版） ==========
-let audioCtx = null;
-let mediaSource = null;
-let analyserNode = null;
-let spectrumAnimationId = null;
-
-function stopSpectrum() {
-  if (spectrumAnimationId) {
-    cancelAnimationFrame(spectrumAnimationId);
-    spectrumAnimationId = null;
-  }
-  if (mediaSource) {
-    try { mediaSource.disconnect(); } catch(e) {}
-    mediaSource = null;
-  }
-  if (analyserNode) {
-    try { analyserNode.disconnect(); } catch(e) {}
-    analyserNode = null;
-  }
-  if (audioCtx) {
-    try { audioCtx.close(); } catch(e) {}
-    audioCtx = null;
-  }
-  const canvas = document.getElementById('audioSpectrum');
-  if (canvas) canvas.style.display = 'none';
-}
-
-function initSpectrum(audioElement) {
-  if (!audioElement) return;
-  // 如果已经有频谱，先停掉再重新创建
-  stopSpectrum();
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    analyserNode = audioCtx.createAnalyser();
-    analyserNode.fftSize = 256;
-    const bufferLength = analyserNode.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    mediaSource = audioCtx.createMediaElementSource(audioElement);
-    mediaSource.connect(analyserNode);
-    analyserNode.connect(audioCtx.destination);
-    
-    const canvas = document.getElementById('audioSpectrum');
-    if (!canvas) return;
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    canvas.style.display = 'block';
-    const ctx = canvas.getContext('2d');
-    
-    function drawSpectrum() {
-      if (!analyserNode || !ctx) return;
-      spectrumAnimationId = requestAnimationFrame(drawSpectrum);
-      analyserNode.getByteFrequencyData(dataArray);
-      const width = canvas.width, height = canvas.height;
-      const barWidth = (width / bufferLength) * 2.5;
-      let x = 0;
-      ctx.clearRect(0, 0, width, height);
-      const isDark = document.documentElement.classList.contains('dark');
-      const gradient = ctx.createLinearGradient(0, 0, 0, height);
-      if (isDark) {
-        gradient.addColorStop(0, '#1e90ff');
-        gradient.addColorStop(0.5, '#8b5cf6');
-        gradient.addColorStop(1, '#f97316');
-      } else {
-        gradient.addColorStop(0, '#1e90ff');
-        gradient.addColorStop(0.5, '#6366f1');
-        gradient.addColorStop(1, '#f59e0b');
-      }
-      for (let i = 0; i < bufferLength; i++) {
-        const value = dataArray[i];
-        const percent = value / 256;
-        const barHeight = Math.max(4, percent * height);
-        ctx.fillStyle = gradient;
-        ctx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
-        x += barWidth;
-      }
-    }
-    drawSpectrum();
-    // 确保 AudioContext 启动
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-    // 监听音频元素暂停/结束事件，清理频谱
-    const cleanup = () => {
-      if (audioElement.paused || audioElement.ended) {
-        stopSpectrum();
-        audioElement.removeEventListener('pause', cleanup);
-        audioElement.removeEventListener('ended', cleanup);
-      }
-    };
-    audioElement.addEventListener('pause', cleanup);
-    audioElement.addEventListener('ended', cleanup);
-  } catch (err) {
-    console.warn('频谱初始化失败', err);
-    stopSpectrum();
-  }
-}
-
 function isMember() { try { return localStorage.getItem(STORAGE_MEMBER_KEY) === "paid"; } catch { return false; } }
 function setMemberPaid() { try { localStorage.setItem(STORAGE_MEMBER_KEY, "paid"); } catch {} document.documentElement.classList.add("no-ad"); }
 function initAdState() { if (isMember()) document.documentElement.classList.add("no-ad"); }
@@ -245,9 +148,11 @@ function renderStationList(rawList) {
     playStation(station);
   };
 }
+
+// 播放函数（控制频谱容器的显示/隐藏）
 async function playStation(station) {
-  // 先停止频谱（切换电台时释放资源）
-  stopSpectrum();
+  const spectrumContainer = document.getElementById('spectrumContainer');
+  if (spectrumContainer) spectrumContainer.style.display = 'none';
   dom.audioPlayer.pause();
   dom.audioPlayer.src = "";
   dom.audioPlayer.load();
@@ -256,14 +161,14 @@ async function playStation(station) {
     dom.audioPlayer.src = station.url;
     await dom.audioPlayer.play();
     addHistory(station);
-    // 播放成功后初始化频谱
-    initSpectrum(dom.audioPlayer);
+    if (spectrumContainer) spectrumContainer.style.display = 'flex';
   } catch (err) {
     dom.playTitle.innerText = "该电台无法播放，试试其他的吧";
     console.error("播放失败:", err);
-    stopSpectrum();
+    if (spectrumContainer) spectrumContainer.style.display = 'none';
   }
 }
+
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
 // ========== 国家列表（下拉框版本） ==========
@@ -487,13 +392,11 @@ function bindVisibilityPause() {
   document.addEventListener("visibilitychange", () => { 
     if (document.hidden && !dom.audioPlayer.paused) {
       dom.audioPlayer.pause();
-      stopSpectrum();
     }
   }); 
   window.addEventListener('beforeunload', () => { 
     dom.audioPlayer.pause(); 
     dom.audioPlayer.src = ""; 
-    stopSpectrum();
   }); 
 }
 function bindAllEvents() {
