@@ -154,7 +154,7 @@ async function playStation(station) {
 }
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// ========== 国家列表（标准化） ==========
+// ========== 国家列表（下拉框版本） ==========
 const FALLBACK_COUNTRIES = [
   { name: "United States", code: "US" },
   { name: "United Kingdom", code: "GB" },
@@ -178,98 +178,54 @@ const FALLBACK_COUNTRIES = [
 
 async function loadCachedCountries() {
   let data = await safeFetch("/countries", fetchOption);
-  let useFallback = false;
   if (!data || data.length === 0) {
-    useFallback = true;
     data = FALLBACK_COUNTRIES;
   } else {
-    data = data.map(c => ({ name: c.name, code: c.iso_3166_1, stationcount: c.stationcount }));
+    data = data.map(c => ({ name: c.name, code: c.iso_3166_1 }));
   }
+  // 按国家名称排序
+  data.sort((a, b) => a.name.localeCompare(b.name));
   state.fullCountryList = data;
   renderCountryButtons(data);
-  if (useFallback) {
-    showEmptyTip("国家列表加载失败，使用内置列表（仍可正常使用）");
-  }
-}
-
-function groupCountriesByLetter(list) {
-    const groups = {};
-    list.forEach(item => {
-        const firstLetter = item.name.charAt(0).toUpperCase();
-        if (!groups[firstLetter]) groups[firstLetter] = [];
-        groups[firstLetter].push(item);
-    });
-    for (const letter in groups) {
-        groups[letter].sort((a, b) => a.name.localeCompare(b.name));
-    }
-    const sortedGroups = {};
-    Object.keys(groups).sort().forEach(letter => {
-        sortedGroups[letter] = groups[letter];
-    });
-    return sortedGroups;
 }
 
 function renderCountryButtons(list) {
-    dom.countryBtnWrap.innerHTML = "";
-    if (!list || list.length === 0) {
-        dom.countryBtnWrap.innerHTML = "<p style='padding:10px;text-align:center;'>暂无国家数据</p>";
-        return;
+  dom.countryBtnWrap.innerHTML = "";
+  if (!list || list.length === 0) {
+    dom.countryBtnWrap.innerHTML = "<p style='padding:10px;text-align:center;'>暂无国家数据</p>";
+    return;
+  }
+
+  const selectWrapper = document.createElement("div");
+  selectWrapper.className = "country-select-wrapper";
+
+  const select = document.createElement("select");
+  select.className = "country-select";
+  select.id = "countrySelect";
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "-- 选择国家 / Select Country --";
+  defaultOption.disabled = true;
+  defaultOption.selected = true;
+  select.appendChild(defaultOption);
+
+  list.forEach(ct => {
+    const option = document.createElement("option");
+    option.value = ct.code;
+    option.textContent = ct.name;
+    select.appendChild(option);
+  });
+
+  select.addEventListener("change", (e) => {
+    const countryCode = e.target.value;
+    if (countryCode) {
+      loadByCountryCode(countryCode);
     }
+  });
 
-    const grouped = groupCountriesByLetter(list);
-    const letters = Object.keys(grouped);
-
-    // 创建字母索引栏（横向）
-    const indexBar = document.createElement("div");
-    indexBar.className = "country-index-bar";
-    letters.forEach(letter => {
-        const letterBtn = document.createElement("button");
-        letterBtn.textContent = letter;
-        letterBtn.className = "index-letter";
-        letterBtn.addEventListener("click", () => {
-            const targetGroup = document.getElementById(`group-${letter}`);
-            if (targetGroup) {
-                targetGroup.scrollIntoView({ behavior: "smooth", block: "start" });
-            }
-        });
-        indexBar.appendChild(letterBtn);
-    });
-    dom.countryBtnWrap.appendChild(indexBar);
-
-    // 创建各个字母分组
-    letters.forEach(letter => {
-        const groupDiv = document.createElement("div");
-        groupDiv.className = "country-group";
-        groupDiv.id = `group-${letter}`;
-
-        const header = document.createElement("div");
-        header.className = "country-group-header";
-        header.innerHTML = `
-            <span class="group-letter">${letter}</span>
-            <span class="group-count">(${grouped[letter].length})</span>
-            <span class="group-toggle">▼</span>
-        `;
-        const contentDiv = document.createElement("div");
-        contentDiv.className = "country-group-content";
-        contentDiv.style.display = "flex";
-        grouped[letter].forEach(ct => {
-            const btn = document.createElement("button");
-            btn.className = "country-btn";
-            btn.textContent = escapeHtml(ct.name);
-            btn.dataset.countrycode = ct.code;
-            btn.onclick = () => loadByCountryCode(ct.code);
-            contentDiv.appendChild(btn);
-        });
-        header.addEventListener("click", () => {
-            const isOpen = contentDiv.style.display !== "none";
-            contentDiv.style.display = isOpen ? "none" : "flex";
-            const toggleSpan = header.querySelector(".group-toggle");
-            toggleSpan.textContent = isOpen ? "▶" : "▼";
-        });
-        groupDiv.appendChild(header);
-        groupDiv.appendChild(contentDiv);
-        dom.countryBtnWrap.appendChild(groupDiv);
-    });
+  selectWrapper.appendChild(select);
+  dom.countryBtnWrap.appendChild(selectWrapper);
 }
 
 async function loadByCountryCode(countryCode) {
@@ -306,7 +262,7 @@ async function loadByCountryCode(countryCode) {
   hideLoading();
 }
 
-// ========== 主要语言列表 ==========
+// ========== 主要语言列表（保持按钮网格） ==========
 const MAJOR_LANGUAGES = [
   { display: "🇬🇧 English (英语)", searchKey: "english" },
   { display: "🇨🇳 Chinese (汉语)", searchKey: "chinese" },
@@ -392,6 +348,7 @@ async function loadByLanguageKey(langKey) {
   hideLoading();
 }
 
+// ========== 其他数据接口 ==========
 async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
 async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
@@ -441,7 +398,7 @@ function bindNavEvents() {
         case "hot": await loadHot(); break;
         case "all": await loadAllStations(); break;
         case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break;
-        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("点击下方国家加载电台"); await loadCachedCountries(); break;
+        case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("从下拉框选择国家"); await loadCachedCountries(); break;
         case "lang": hideAllFilter(); dom.langFilter.style.display = "flex"; renderLanguageButtons(); bindLanguageEvents(); showEmptyTip("点击下方语言加载电台"); break;
       }
     };
