@@ -25,11 +25,11 @@ async function fetchWithFallback(url, options) {
   throw new Error("所有 API 镜像均不可用");
 }
 
-// 多组UA轮换（符合官方建议格式）
+// 多组UA轮换（符合官方建议格式，邮箱已替换）
 const UA_LIST = [
-  "GlobalRadioHub/1.0 (Contact: your-email@xxx.com)",
-  "RadioHubWeb/1.0 (Contact: your-email@xxx.com)",
-  "GlobalFMHub/1.0 (Contact: your-email@xxx.com)"
+  "GlobalRadioHub/1.0 (Contact: wcqyt@163.com)",
+  "RadioHubWeb/1.0 (Contact: wcqyt@163.com)",
+  "GlobalFMHub/1.0 (Contact: wcqyt@163.com)"
 ];
 function getRandomUA() {
   return UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
@@ -91,7 +91,7 @@ async function safeFetch(urlPath, opt) {
   }
 }
 
-// DOM 元素（和之前一样，不需要改）
+// DOM 元素
 const dom = {
   searchInput: document.getElementById("searchInput"),
   searchBtn: document.getElementById("searchBtn"),
@@ -131,7 +131,7 @@ let state = {
   paypalRetries: 0
 };
 
-// ========== 以下函数全部保持不变（收藏、历史、主题、支付等） ==========
+// ========== 会员系统 ==========
 function isMember() {
   try { return localStorage.getItem(STORAGE_MEMBER_KEY) === "paid"; }
   catch { return false; }
@@ -145,6 +145,7 @@ function initAdState() {
   if (isMember()) document.documentElement.classList.add("no-ad");
 }
 
+// 加载提示
 function showLoading() { dom.loadingTip.style.display = "block"; dom.emptyTip.style.display = "none"; }
 function hideLoading() { dom.loadingTip.style.display = "none"; }
 function showEmptyTip(text) { dom.emptyTip.textContent = text; dom.emptyTip.style.display = "block"; dom.stationList.innerHTML = ""; }
@@ -156,6 +157,7 @@ function hideAllFilter() {
   dom.langFilter.style.display = "none";
 }
 
+// 收藏
 function getFavorites() {
   try { const raw = localStorage.getItem(STORAGE_FAV_KEY); return raw ? JSON.parse(raw) : []; }
   catch { return []; }
@@ -180,6 +182,7 @@ function loadFavList() {
   renderStationList(favs);
 }
 
+// 播放历史
 function getHistory() {
   try { const raw = localStorage.getItem(STORAGE_HIST_KEY); return raw ? JSON.parse(raw) : []; }
   catch { return []; }
@@ -201,6 +204,7 @@ function loadHistoryList() {
   renderStationList(hist);
 }
 
+// 主题
 function initTheme() {
   let saved = "light";
   try { saved = localStorage.getItem(STORAGE_THEME_KEY) || "light"; }
@@ -216,6 +220,7 @@ function toggleTheme() {
   catch {}
 }
 
+// PayPal
 function loadPayPal() {
   if (document.querySelector('#paypal-sdk')) return;
   const script = document.createElement('script');
@@ -259,6 +264,7 @@ function bindModalEvent() {
   });
 }
 
+// 渲染电台列表
 function renderStationList(rawList) {
   dom.stationList.innerHTML = "";
   dom.emptyTip.style.display = "none";
@@ -311,6 +317,7 @@ async function playStation(station) {
 
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
+// 缓存国家/语言
 async function loadCachedCountries() {
   try {
     const cacheStr = localStorage.getItem(STORAGE_COUNTRY_CACHE);
@@ -371,6 +378,7 @@ function renderLangButtons(list) {
   });
 }
 
+// 数据加载
 async function loadHot() {
   showLoading();
   hideAllFilter();
@@ -419,6 +427,7 @@ async function loadByLang(name) {
   hideLoading();
 }
 
+// 搜索
 const handleSearch = debounce(async () => {
   const q = dom.searchInput.value.trim();
   if (!q) return;
@@ -441,6 +450,7 @@ const filterLang = debounce(() => {
   renderLangButtons(filtered);
 });
 
+// 导航切换
 function bindNavEvents() {
   dom.mainNavBtns.forEach(btn => {
     btn.onclick = async () => {
@@ -473,6 +483,7 @@ function bindNavEvents() {
   });
 }
 
+// 分页
 function bindPageEvents() {
   dom.prevPage.onclick = async () => {
     if (state.nowView !== "all" || state.currentPage <= 1) return;
@@ -486,6 +497,7 @@ function bindPageEvents() {
   };
 }
 
+// 后台暂停音频
 function bindVisibilityPause() {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden && !dom.audioPlayer.paused) dom.audioPlayer.pause();
