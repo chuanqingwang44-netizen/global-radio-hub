@@ -154,7 +154,7 @@ async function playStation(station) {
 }
 function updatePageText() { dom.pageNumText.textContent = `第 ${state.currentPage} 页`; }
 
-// ========== 国家列表（强制使用内置后备列表） ==========
+// ========== 国家列表（强制使用内置后备列表，无括号） ==========
 const FALLBACK_COUNTRIES = [
   "United States", "United Kingdom", "Canada", "Australia", "Germany", "France", "Italy", "Spain",
   "Japan", "China", "India", "Brazil", "Mexico", "Netherlands", "Sweden", "Norway", "Poland", "Russia"
@@ -166,7 +166,6 @@ async function loadCachedCountries() {
   renderCountryButtons(data);
 }
 
-// 国家按钮渲染：只显示国家名称，不显示数字，不带括号
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
   if (!list || list.length === 0) {
@@ -176,7 +175,7 @@ function renderCountryButtons(list) {
   list.forEach(ct => {
     const btn = document.createElement("button");
     btn.className = "country-btn";
-    btn.textContent = escapeHtml(ct.name);   // 只有国家名
+    btn.textContent = escapeHtml(ct.name);
     btn.dataset.country = ct.name;
     btn.onclick = () => loadByCountry(ct.name);
     dom.countryBtnWrap.appendChild(btn);
@@ -217,7 +216,7 @@ async function loadByCountry(countryName) {
   hideLoading();
 }
 
-// ========== 主要语言列表 ==========
+// ========== 主要语言列表（硬编码） ==========
 const MAJOR_LANGUAGES = [
   { name: "English", code: "en", keywords: ["english", "en"] },
   { name: "Chinese", code: "zh", keywords: ["chinese", "zh", "chi", "zho"] },
@@ -246,9 +245,29 @@ function renderLanguageButtons() {
     btn.textContent = displays[lang.name];
     btn.dataset.lang = lang.name;
     btn.dataset.code = lang.code;
-    btn.onclick = () => loadByLanguage(lang);
+    // 不再直接绑定 onclick，而是通过事件委托处理
     dom.langBtnWrap.appendChild(btn);
   });
+}
+
+// 语言按钮的事件委托（确保动态生成的按钮也能响应）
+function bindLanguageEvents() {
+  if (dom.langBtnWrap) {
+    dom.langBtnWrap.addEventListener('click', (e) => {
+      const targetBtn = e.target.closest('.lang-btn');
+      if (!targetBtn) return;
+      const langName = targetBtn.dataset.lang;
+      if (langName) {
+        // 找到对应的语言对象
+        const langObj = MAJOR_LANGUAGES.find(l => l.name === langName);
+        if (langObj) {
+          loadByLanguage(langObj);
+        } else {
+          console.warn(`未找到语言: ${langName}`);
+        }
+      }
+    });
+  }
 }
 
 async function loadByLanguage(lang) {
@@ -300,6 +319,7 @@ async function loadByLanguage(lang) {
   hideLoading();
 }
 
+// ========== 其他数据接口 ==========
 async function loadHot() { showLoading(); hideAllFilter(); const data = await safeFetch("/stations/topclick/100", fetchOption); renderStationList(data); hideLoading(); }
 async function loadAllStations() { showLoading(); dom.typeFilter.style.display = "none"; dom.countryFilter.style.display = "none"; dom.langFilter.style.display = "none"; dom.pageBox.style.display = "flex"; const offset = (state.currentPage - 1) * pageSize; const data = await safeFetch(`/stations?limit=${pageSize}&offset=${offset}`, fetchOption); renderStationList(data); updatePageText(); hideLoading(); }
 async function loadByTag(tag) { showLoading(); hideAllFilter(); dom.typeFilter.style.display = "flex"; const data = await safeFetch(`/stations/search?tag=${encodeURIComponent(tag)}&limit=120`, fetchOption); renderStationList(data); hideLoading(); }
@@ -351,7 +371,7 @@ function bindNavEvents() {
         case "all": await loadAllStations(); break;
         case "type": hideAllFilter(); dom.typeFilter.style.display = "flex"; showEmptyTip("点击上方标签浏览"); break;
         case "country": hideAllFilter(); dom.countryFilter.style.display = "flex"; showEmptyTip("点击下方国家加载电台"); await loadCachedCountries(); break;
-        case "lang": hideAllFilter(); dom.langFilter.style.display = "flex"; renderLanguageButtons(); showEmptyTip("点击下方语言加载电台"); break;
+        case "lang": hideAllFilter(); dom.langFilter.style.display = "flex"; renderLanguageButtons(); bindLanguageEvents(); showEmptyTip("点击下方语言加载电台"); break;
       }
     };
   });
