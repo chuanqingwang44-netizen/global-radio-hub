@@ -336,7 +336,20 @@ html.dark audio::-webkit-media-controls-time-remaining-display {
     color: #e2e8f0;
 }
 
-/* ========== CSS 模拟频谱（全宽、密集） ========== */
+/* ========== 真实频谱 canvas ========== */
+.real-spectrum {
+    width: 100%;
+    height: 80px;
+    margin-top: 16px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.05);
+    display: block;
+}
+html.dark .real-spectrum {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* ========== CSS 模拟频谱（回退方案，全宽） ========== */
 .spectrum-container {
     display: flex;
     align-items: flex-end;
@@ -401,7 +414,7 @@ html.dark .spectrum-container {
     100% { height: 65px; opacity: 1; }
 }
 
-/* 播放时加快跳动频率 */
+/* 播放时加快跳动频率（仅 CSS 模拟） */
 .player.playing .spectrum-container {
     background: rgba(30,144,255,0.08);
 }
@@ -604,7 +617,7 @@ html.no-ad .ad-wrapper {
     #playTitle {
         font-size: 0.9rem;
     }
-    .spectrum-container {
+    .real-spectrum, .spectrum-container {
         height: 50px;
     }
     .spectrum-bar {
