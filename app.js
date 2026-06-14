@@ -161,13 +161,12 @@ const FALLBACK_COUNTRIES = [
 ];
 
 async function loadCachedCountries() {
-  // 直接强制使用内置国家列表，不请求 API，不读取缓存
   const data = FALLBACK_COUNTRIES.map(name => ({ name, stationcount: 0 }));
   state.fullCountryList = data;
   renderCountryButtons(data);
 }
 
-// 国家按钮渲染：只显示国家名称，不显示数字
+// 国家按钮渲染：只显示国家名称，不显示数字，不带括号
 function renderCountryButtons(list) {
   dom.countryBtnWrap.innerHTML = "";
   if (!list || list.length === 0) {
@@ -177,7 +176,7 @@ function renderCountryButtons(list) {
   list.forEach(ct => {
     const btn = document.createElement("button");
     btn.className = "country-btn";
-    btn.textContent = `${escapeHtml(ct.name)}`;   // 只显示国家名，不带括号和数字
+    btn.textContent = escapeHtml(ct.name);   // 只有国家名
     btn.dataset.country = ct.name;
     btn.onclick = () => loadByCountry(ct.name);
     dom.countryBtnWrap.appendChild(btn);
@@ -218,7 +217,7 @@ async function loadByCountry(countryName) {
   hideLoading();
 }
 
-// ========== 主要语言列表（硬编码） ==========
+// ========== 主要语言列表 ==========
 const MAJOR_LANGUAGES = [
   { name: "English", code: "en", keywords: ["english", "en"] },
   { name: "Chinese", code: "zh", keywords: ["chinese", "zh", "chi", "zho"] },
